@@ -38,6 +38,7 @@ libexec_PROGRAMS = \
     gom-facebook-miner \
     gom-flickr-miner \
     gom-gdata-miner \
+    gom-mediaserver-miner \
     gom-owncloud-miner \
     gom-zpj-miner \
     $(NULL)
@@ -114,6 +115,30 @@ gom_gdata_miner_CPPFLAGS = \
 gom_gdata_miner_LDADD = \
     libgom-1.0.la  \
     $(GDATA_LIBS) \
+    $(GIO_LIBS) \
+    $(GLIB_LIBS) \
+    $(GOA_LIBS) \
+    $(TRACKER_LIBS) \
+    $(NULL)
+
+gom_mediaserver_miner_SOURCES = \
+    gom-mediaserver-miner-main.c \
+    gom-mediaserver-miner.c \
+    gom-mediaserver-miner.h \
+    $(NULL)
+
+gom_mediaserver_miner_CPPFLAGS = \
+    -DG_LOG_DOMAIN=\"Gom\" \
+    -DG_DISABLE_DEPRECATED \
+    -I$(top_srcdir)/src \
+    $(GIO_CFLAGS) \
+    $(GLIB_CFLAGS) \
+    $(GOA_CFLAGS) \
+    $(TRACKER_CFLAGS) \
+    $(NULL)
+
+gom_mediaserver_miner_LDADD = \
+    libgom-1.0.la  \
     $(GIO_LIBS) \
     $(GLIB_LIBS) \
     $(GOA_LIBS) \
