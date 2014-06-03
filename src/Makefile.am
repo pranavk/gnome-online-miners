@@ -49,6 +49,7 @@ libexec_PROGRAMS = \
     gom-facebook-miner \
     gom-flickr-miner \
     gom-gdata-miner \
+    gom-media-server-miner \
     gom-owncloud-miner \
     gom-zpj-miner \
     $(NULL)
@@ -131,6 +132,43 @@ gom_gdata_miner_LDADD = \
     $(TRACKER_LIBS) \
     $(NULL)
 
+gom_media_server_miner_built_sources = \
+    gom-dleyna-server-manager.c \
+    gom-dleyna-server-manager.h \
+    gom-dleyna-server-media-device.c \
+    gom-dleyna-server-media-device.h \
+    gom-upnp-media-container2.c \
+    gom-upnp-media-container2.h \
+    $(NULL)
+
+nodist_gom_media_server_miner_SOURCES = \
+    $(gom_media_server_miner_built_sources)
+    $(NULL)
+
+gom_media_server_miner_SOURCES = \
+    gom-media-server-miner-main.c \
+    gom-media-server-miner.c \
+    gom-media-server-miner.h \
+    $(NULL)
+
+gom_media_server_miner_CPPFLAGS = \
+    -DG_LOG_DOMAIN=\"Gom\" \
+    -DG_DISABLE_DEPRECATED \
+    -I$(top_srcdir)/src \
+    $(GIO_CFLAGS) \
+    $(GLIB_CFLAGS) \
+    $(GOA_CFLAGS) \
+    $(TRACKER_CFLAGS) \
+    $(NULL)
+
+gom_media_server_miner_LDADD = \
+    libgom-1.0.la  \
+    $(GIO_LIBS) \
+    $(GLIB_LIBS) \
+    $(GOA_LIBS) \
+    $(TRACKER_LIBS) \
+    $(NULL)
+
 gom_owncloud_miner_SOURCES = \
     gom-owncloud-miner-main.c \
     gom-owncloud-miner.c \
@@ -183,6 +221,7 @@ gom_zpj_miner_LDADD = \
 
 BUILT_SOURCES = \
     $(libgom_1_0_la_built_sources) \
+    $(gom_media_server_miner_built_sources)
     $(NULL)
 
 CLEANFILES = \
@@ -191,8 +230,32 @@ CLEANFILES = \
 
 EXTRA_DIST = \
     gom-dbus.xml \
+    gom-dleyna-server-manager.xml \
+    gom-dleyna-server-media-device.xml \
+    gom-upnp-media-container2.xml \
     gom-miner-main.c \
     $(NULL)
+
+gom-dleyna-server-media-device.h gom-dleyna-server-media-device.c: gom-dleyna-server-media-device.xml
+	$(AM_V_GEN)gdbus-codegen \
+		--c-namespace DleynaServer \
+		--generate-c-code gom-dleyna-server-media-device \
+		--interface-prefix com.intel.dLeynaServer. \
+		$<
+
+gom-dleyna-server-manager.h gom-dleyna-server-manager.c: gom-dleyna-server-manager.xml
+	$(AM_V_GEN)gdbus-codegen \
+		--c-namespace DleynaServer \
+		--generate-c-code gom-dleyna-server-manager \
+		--interface-prefix com.intel.dLeynaServer. \
+		$<
+
+gom-upnp-media-container2.h gom-upnp-media-container2.c: gom-upnp-media-container2.xml
+	$(AM_V_GEN)gdbus-codegen \
+		--c-namespace Upnp \
+		--generate-c-code gom-upnp-media-container2 \
+		--interface-prefix org.gnome.UPnP. \
+		$<
 
 gom-dbus.h gom-dbus.c: gom-dbus.xml
 	$(AM_V_GEN)gdbus-codegen \
