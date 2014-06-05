@@ -26,10 +26,16 @@
 #include <goa/goa.h>
 
 #include "gom-mediaserver-miner.h"
+#include "gom-dlna-server-manager.h"
+#include "gom-dlna-server-device.h"
 
 #define MINER_IDENTIFIER "gd:media_server:miner:a4a47a3e-eb55-11e3-b983-14feb59cfa0e"
 
-G_DEFINE_TYPE (GomMediaServerMiner, gom_media_server_miner, GOM_TYPE_MINER)
+struct _GomMediaServerMinerPrivate {
+  GomDlnaServerManager *dlna_mngr;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE (GomMediaServerMiner, gom_media_server_miner, GOM_TYPE_MINER)
 
 static void
 query_media_server (GomAccountMinerJob *job,
@@ -41,6 +47,9 @@ static GObject *
 create_service (GomMiner *self,
                 GoaObject *object)
 {
+  GomMediaServerMiner *miner = GOM_MEDIA_SERVER_MINER (self);
+  GomMediaServerMinerPrivate *priv = miner->priv;
+
   return g_object_ref (object);
 }
 
@@ -50,8 +59,21 @@ gom_media_server_miner_dispose (GObject *object)
 }
 
 static void
+gom_media_server_miner_finalize (GObject *object)
+{
+  GomMediaServerMinerPrivate *priv = GOM_MEDIA_SERVER_MINER (object)->priv;
+
+  g_clear_object (&priv->dlna_mngr);
+
+  (G_OBJECT_CLASS (gom_media_server_miner_parent_class)->finalize) (object);
+}
+
+static void
 gom_media_server_miner_init (GomMediaServerMiner *miner)
 {
+  miner->priv = gom_media_server_miner_get_instance_private (miner);
+
+  miner->priv->dlna_mngr = gom_dlna_server_manager_dup_singleton ();
 }
 
 static void
@@ -61,6 +83,7 @@ gom_media_server_miner_class_init (GomMediaServerMinerClass *klass)
   GomMinerClass *miner_class = GOM_MINER_CLASS (klass);
 
   oclass->dispose = gom_media_server_miner_dispose;
+  oclass->finalize = gom_media_server_miner_finalize;
   
   miner_class->goa_provider_type = "media_server";
   miner_class->miner_identifier = MINER_IDENTIFIER;
