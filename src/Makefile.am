@@ -121,30 +121,6 @@ gom_gdata_miner_LDADD = \
     $(TRACKER_LIBS) \
     $(NULL)
 
-gom_mediaserver_miner_SOURCES = \
-    gom-mediaserver-miner-main.c \
-    gom-mediaserver-miner.c \
-    gom-mediaserver-miner.h \
-    $(NULL)
-
-gom_mediaserver_miner_CPPFLAGS = \
-    -DG_LOG_DOMAIN=\"Gom\" \
-    -DG_DISABLE_DEPRECATED \
-    -I$(top_srcdir)/src \
-    $(GIO_CFLAGS) \
-    $(GLIB_CFLAGS) \
-    $(GOA_CFLAGS) \
-    $(TRACKER_CFLAGS) \
-    $(NULL)
-
-gom_mediaserver_miner_LDADD = \
-    libgom-1.0.la  \
-    $(GIO_LIBS) \
-    $(GLIB_LIBS) \
-    $(GOA_LIBS) \
-    $(TRACKER_LIBS) \
-    $(NULL)
-
 gom_owncloud_miner_SOURCES = \
     gom-owncloud-miner-main.c \
     gom-owncloud-miner.c \
@@ -194,6 +170,44 @@ gom_zpj_miner_LDADD = \
     $(TRACKER_LIBS) \
     $(ZAPOJIT_LIBS) \
     $(NULL)
+
+gom_mediaserver_miner_SOURCES = \
+    gom-mediaserver-miner-main.c \
+    gom-mediaserver-miner.c \
+    gom-mediaserver-miner.h \
+    gom-dlna-server-device.h \
+    gom-dlna-server-device.c \
+    gom-dlna-server-manager.h \
+    gom-dlna-server-manager.c \
+    $(NULL)
+
+nodist_gom_mediaserver_miner_SOURCES = \
+    gom-dleyna-server-manager.h   gom-dleyna-server-manager.c \
+    gom-dleyna-server-device.h    gom-dleyna-server-device.c  \
+    $(NULL)
+
+gom_mediaserver_miner_CPPFLAGS = \
+    -DG_LOG_DOMAIN=\"Gom\" \
+    -DG_DISABLE_DEPRECATED \
+    -I$(top_srcdir)/src \
+    $(GTK_CFLAGS) \
+    $(GTK_UNIX_PRINT_CFLAGS) \
+    $(GIO_CFLAGS) \
+    $(GLIB_CFLAGS) \
+    $(GOA_CFLAGS) \
+    $(TRACKER_CFLAGS) \
+    $(NULL)
+
+gom_mediaserver_miner_LDADD = \
+    libgom-1.0.la  \
+    $(GTK_LIBS) \
+    $(GTK_UNIX_PRINT_LIBS) \
+    $(GIO_LIBS) \
+    $(GLIB_LIBS) \
+    $(GOA_LIBS) \
+    $(TRACKER_LIBS) \
+    $(NULL)
+
 
 
 BUILT_SOURCES = \
