@@ -55,11 +55,6 @@ create_service (GomMiner *self,
 }
 
 static void
-gom_media_server_miner_dispose (GObject *object)
-{
-}
-
-static void
 gom_media_server_miner_finalize (GObject *object)
 {
   GomMediaServerMinerPrivate *priv = GOM_MEDIA_SERVER_MINER (object)->priv;
@@ -83,7 +78,6 @@ gom_media_server_miner_class_init (GomMediaServerMinerClass *klass)
   GObjectClass *oclass = G_OBJECT_CLASS (klass);
   GomMinerClass *miner_class = GOM_MINER_CLASS (klass);
 
-  oclass->dispose = gom_media_server_miner_dispose;
   oclass->finalize = gom_media_server_miner_finalize;
   
   miner_class->goa_provider_type = "media_server";
