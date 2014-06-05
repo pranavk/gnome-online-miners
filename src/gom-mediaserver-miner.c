@@ -41,6 +41,7 @@ static void
 query_media_server (GomAccountMinerJob *job,
                     GError **error)
 {
+  
 }
 
 static GObject *

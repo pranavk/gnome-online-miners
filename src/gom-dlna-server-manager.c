@@ -53,19 +53,6 @@ G_DEFINE_TYPE_WITH_PRIVATE (GomDlnaServerManager, gom_dlna_server_manager, G_TYP
 static GObject *gom_dlna_server_manager_singleton = NULL;
 
 
-static void
-gom_dlna_server_manager_dispose (GObject *object)
-{
-  GomDlnaServerManager *self = GOM_DLNA_SERVER_MANAGER (object);
-  GomDlnaServerManagerPrivate *priv = self->priv;
-
-  g_clear_object (&priv->proxy);
-  g_clear_pointer (&priv->server, g_hash_table_unref);
-  g_clear_error (&priv->error);
-
-  G_OBJECT_CLASS (gom_dlna_server_manager_parent_class)->dispose (object);
-}
-
 
 static void
 gom_dlna_server_manager_server_new_cb (GObject      *source_object,
@@ -83,7 +70,7 @@ gom_dlna_server_manager_server_new_cb (GObject      *source_object,
     {
       g_warning ("Unable to load server object: %s", error->message);
       g_propagate_error (&priv->error, error);
-      return;
+      goto out;
     }
 
   object_path = gom_dlna_server_device_get_object_path (server);
@@ -93,6 +80,9 @@ gom_dlna_server_manager_server_new_cb (GObject      *source_object,
            object_path);
   g_hash_table_insert (priv->server, (gpointer) object_path, server);
   g_signal_emit (self, signals[SERVER_FOUND], 0, server);
+
+ out:
+  g_object_unref (self);
 }
 
 
@@ -107,7 +97,7 @@ gom_dlna_server_manager_server_found_cb (GomDlnaServerManager *self,
                                       object_path,
                                       NULL, /* GCancellable */
                                       gom_dlna_server_manager_server_new_cb,
-                                      self);
+                                      g_object_ref (self));
 }
 
 
@@ -128,7 +118,6 @@ gom_dlna_server_manager_server_lost_cb (GomDlnaServerManager *self,
            gom_dlna_server_device_get_udn (server),
            object_path);
   g_signal_emit (self, signals[SERVER_LOST], 0, server);
-  g_object_unref (server);
 }
 
 
@@ -147,13 +136,22 @@ gom_dlna_server_manager_proxy_get_servers_cb (GObject      *source_object,
     {
       g_warning ("Unable to fetch the list of available server: %s", error->message);
       g_propagate_error (&priv->error, error);
-      return;
+      goto out;
     }
 
   for (path = object_paths; *path != NULL; path++)
     gom_dlna_server_manager_server_found_cb (self, *path, NULL);
 
+  g_signal_connect_swapped (priv->proxy, "found-server",
+                            G_CALLBACK (gom_dlna_server_manager_server_found_cb),
+                            self);
+  g_signal_connect_swapped (priv->proxy, "lost-server",
+                            G_CALLBACK (gom_dlna_server_manager_server_lost_cb),
+                            self);
+
+ out:
   g_strfreev (object_paths);
+  g_object_unref (self);
 }
 
 
@@ -171,21 +169,31 @@ gom_dlna_server_manager_proxy_new_cb (GObject      *source_object,
     {
       g_warning ("Unable to connect to the dLeynaServer.Manager DBus object: %s", error->message);
       g_propagate_error (&priv->error, error);
-      return;
+      goto out;
     }
 
   g_debug ("%s DLNA server manager initialized", G_STRFUNC);
 
-  g_signal_connect_swapped (priv->proxy, "found-server",
-                            G_CALLBACK (gom_dlna_server_manager_server_found_cb),
-                            self);
-  g_signal_connect_swapped (priv->proxy, "lost-server",
-                            G_CALLBACK (gom_dlna_server_manager_server_lost_cb),
-                            self);
-
   dleyna_server_manager_call_get_servers (priv->proxy, NULL,
                                           gom_dlna_server_manager_proxy_get_servers_cb,
-                                          self);
+                                          g_object_ref (self));
+
+ out:
+  g_object_unref (self);
+}
+
+
+static void
+gom_dlna_server_manager_finalize (GObject *object)
+{
+  GomDlnaServerManager *self = GOM_DLNA_SERVER_MANAGER (object);
+  GomDlnaServerManagerPrivate *priv = self->priv;
+
+  g_clear_object (&priv->proxy);
+  g_clear_pointer (&priv->server, g_hash_table_unref);
+  g_clear_error (&priv->error);
+
+  G_OBJECT_CLASS (gom_dlna_server_manager_parent_class)->finalize (object);
 }
 
 
@@ -217,12 +225,12 @@ gom_dlna_server_manager_init (GomDlnaServerManager *self)
   self->priv = priv = gom_dlna_server_manager_get_instance_private (self);
 
   dleyna_server_manager_proxy_new_for_bus (G_BUS_TYPE_SESSION,
-                                    G_DBUS_PROXY_FLAGS_NONE,
-                                    "com.intel.dleyna-server",
-                                    "/com/intel/dLeynaServer",
-                                    NULL, /* GCancellable */
-                                    gom_dlna_server_manager_proxy_new_cb,
-                                    self);
+                                           G_DBUS_PROXY_FLAGS_NONE,
+                                           "com.intel.dleyna-server",
+                                           "/com/intel/dLeynaServer",
+                                           NULL, /* GCancellable */
+                                           gom_dlna_server_manager_proxy_new_cb,
+                                           g_object_ref (self));
   priv->server = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, g_object_unref);
 }
 
@@ -233,7 +241,7 @@ gom_dlna_server_manager_class_init (GomDlnaServerManagerClass *class)
   GObjectClass *object_class = G_OBJECT_CLASS (class);
 
   object_class->constructor = gom_dlna_server_manager_constructor;
-  object_class->dispose = gom_dlna_server_manager_dispose;
+  object_class->finalize = gom_dlna_server_manager_finalize;
 
   signals[SERVER_FOUND] = g_signal_new ("server-found", G_TYPE_FROM_CLASS (class),
                                         G_SIGNAL_RUN_LAST, 0, NULL, NULL,
