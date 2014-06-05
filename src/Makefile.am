@@ -195,8 +195,30 @@ gom_zpj_miner_LDADD = \
     $(ZAPOJIT_LIBS) \
     $(NULL)
 
-EXTRA_DIST = \
-    gom-miner-main.c \
+
+BUILT_SOURCES = \
+    gom-dleyna-server-manager.h   gom-dleyna-server-manager.c \
+    gom-dleyna-server-device.h    gom-dleyna-server-device.c  \
     $(NULL)
+
+EXTRA_DIST =  \
+    gom-miner-main.c  \
+    gom-dleyna-server-manager.xml \
+    gom-dleyna-server-device.xml  \
+    $(NULL)
+
+gom-dleyna-server-manager.h gom-dleyna-server-manager.c: gom-dleyna-server-manager.xml
+	$(AM_V_GEN)gdbus-codegen \
+    --c-namespace DleynaServer  \
+    --generate-c-code gom-dleyna-server-manager \
+    --interface-prefix com.intel.dLeynaServer.  \
+  $<
+
+gom-dleyna-server-device.h gom-dleyna-server-device.c: gom-dleyna-server-device.xml
+	$(AM_V_GEN)gdbus-codegen \
+    --c-namespace DleynaServer  \
+    --generate-c-code gom-dleyna-server-device  \
+    --interface-prefix com.intel.dLeynaServer.  \
+    $<
 
 -include $(top_srcdir)/git.mk
