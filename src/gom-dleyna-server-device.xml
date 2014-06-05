@@ -24,8 +24,42 @@
 
 <node>
   <interface name="com.intel.dLeynaServer.MediaDevice">
-    <property type="s" name="UDN" access="read" />
-    <property type="s" name="FriendlyName" access="read" />
+    <method name="Cancel">
+    </method>
+    <method name="GetIcon">
+      <arg type="s" name="RequestedMimeType" direction="in">
+      </arg>
+      <arg type="s" name="Resolution" direction="in">
+      </arg>
+      <arg type="ay" name="Bytes" direction="out">
+      </arg>
+      <arg type="s" name="MimeType" direction="out">
+      </arg>
+    </method>
+    <property type="s" name="DeviceType" access="read">
+    </property>
+    <property type="s" name="UDN" access="read">
+    </property>
+    <property type="s" name="FriendlyName" access="read">
+    </property>
+    <property type="s" name="IconURL" access="read">
+    </property>
+    <property type="s" name="Manufacturer" access="read">
+    </property>
+    <property type="s" name="ManufacturerUrl" access="read">
+    </property>
+    <property type="s" name="ModelDescription" access="read">
+    </property>
+    <property type="s" name="ModelName" access="read">
+    </property>
+    <property type="s" name="ModelNumber" access="read">
+    </property>
+    <property type="s" name="SerialNumber" access="read">
+    </property>
+    <property type="s" name="PresentationURL" access="read">
+    </property>
+    <property type="s" name="ProtocolInfo" access="read">
+    </property>
   </interface>
 
   <interface name="com.intel.dLeynaServer.MediaContainer2">
