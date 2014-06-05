@@ -69,8 +69,8 @@ gom_dlna_server_manager_dispose (GObject *object)
 
 static void
 gom_dlna_server_manager_server_new_cb (GObject      *source_object,
-                                               GAsyncResult *res,
-                                               gpointer      user_data)
+                                       GAsyncResult *res,
+                                       gpointer      user_data)
 {
   GomDlnaServerManager *self = GOM_DLNA_SERVER_MANAGER (user_data);
   GomDlnaServerManagerPrivate *priv = self->priv;
@@ -98,8 +98,8 @@ gom_dlna_server_manager_server_new_cb (GObject      *source_object,
 
 static void
 gom_dlna_server_manager_server_found_cb (GomDlnaServerManager *self,
-                                         const gchar                *object_path,
-                                         gpointer                   *data)
+                                         const gchar *object_path,
+                                         gpointer *data)
 {
   gom_dlna_server_device_new_for_bus (G_BUS_TYPE_SESSION,
                                       G_DBUS_PROXY_FLAGS_NONE,
@@ -113,8 +113,8 @@ gom_dlna_server_manager_server_found_cb (GomDlnaServerManager *self,
 
 static void
 gom_dlna_server_manager_server_lost_cb (GomDlnaServerManager *self,
-                                                const gchar                *object_path,
-                                                gpointer                   *data)
+                                        const gchar *object_path,
+                                        gpointer *data)
 {
   GomDlnaServerManagerPrivate *priv = self->priv;
   GomDlnaServerDevice *server;
@@ -134,8 +134,8 @@ gom_dlna_server_manager_server_lost_cb (GomDlnaServerManager *self,
 
 static void
 gom_dlna_server_manager_proxy_get_servers_cb (GObject      *source_object,
-                                                      GAsyncResult *res,
-                                                      gpointer      user_data)
+                                              GAsyncResult *res,
+                                              gpointer      user_data)
 {
   GomDlnaServerManager *self = user_data;
   GomDlnaServerManagerPrivate *priv = self->priv;
@@ -177,12 +177,15 @@ gom_dlna_server_manager_proxy_new_cb (GObject      *source_object,
   g_debug ("%s DLNA server manager initialized", G_STRFUNC);
 
   g_signal_connect_swapped (priv->proxy, "found-server",
-                            G_CALLBACK (gom_dlna_server_manager_server_found_cb), self);
+                            G_CALLBACK (gom_dlna_server_manager_server_found_cb),
+                            self);
   g_signal_connect_swapped (priv->proxy, "lost-server",
-                            G_CALLBACK (gom_dlna_server_manager_server_lost_cb), self);
+                            G_CALLBACK (gom_dlna_server_manager_server_lost_cb),
+                            self);
 
   dleyna_server_manager_call_get_servers (priv->proxy, NULL,
-                                          gom_dlna_server_manager_proxy_get_servers_cb, self);
+                                          gom_dlna_server_manager_proxy_get_servers_cb,
+                                          self);
 }
 
 
@@ -233,14 +236,14 @@ gom_dlna_server_manager_class_init (GomDlnaServerManagerClass *class)
   object_class->dispose = gom_dlna_server_manager_dispose;
 
   signals[SERVER_FOUND] = g_signal_new ("server-found", G_TYPE_FROM_CLASS (class),
-                                          G_SIGNAL_RUN_LAST, 0, NULL, NULL,
-                                          g_cclosure_marshal_VOID__OBJECT,
-                                          G_TYPE_NONE, 1, GOM_TYPE_DLNA_SERVER_DEVICE);
+                                        G_SIGNAL_RUN_LAST, 0, NULL, NULL,
+                                        g_cclosure_marshal_VOID__OBJECT,
+                                        G_TYPE_NONE, 1, GOM_TYPE_DLNA_SERVER_DEVICE);
 
   signals[SERVER_LOST] = g_signal_new ("server-lost", G_TYPE_FROM_CLASS (class),
-                                          G_SIGNAL_RUN_LAST, 0, NULL, NULL,
-                                          g_cclosure_marshal_VOID__OBJECT,
-                                          G_TYPE_NONE, 1, GOM_TYPE_DLNA_SERVER_DEVICE);
+                                       G_SIGNAL_RUN_LAST, 0, NULL, NULL,
+                                       g_cclosure_marshal_VOID__OBJECT,
+                                       G_TYPE_NONE, 1, GOM_TYPE_DLNA_SERVER_DEVICE);
 }
 
 
