@@ -24,50 +24,27 @@
 #include "config.h"
 
 #include "gom-dleyna-server-device.h"
+#include "gom-dleyna-server-mediacontainer2.h"
 #include "gom-dlna-server-device.h"
 
 struct _GomDlnaServerDevicePrivate
 {
   DleynaServerMediaDevice *device;
-  GBusType bus_type;
-  GDBusProxyFlags flags;
-  GHashTable *urls_to_item;
+  DleynaServerMediaContainer2 *container;
+  gchar *udn;
   gchar *object_path;
-  gchar *well_known_name;
+  gchar *friendly_name;
 };
 
-enum
-  {
-    PROP_0,
-    PROP_BUS_TYPE,
-    PROP_FLAGS,
-    PROP_OBJECT_PATH,
-    PROP_SHARED_COUNT,
-    PROP_WELL_KNOWN_NAME,
-  };
 
-static void gom_dlna_server_device_async_initable_iface_init (GAsyncInitableIface *iface);
+enum{
+  PROP_0,
+  PROP_OBJECT_PATH,
+  PROP_NAME,
+  PROP_UDN
+};
 
-
-G_DEFINE_TYPE_WITH_CODE (GomDlnaServerDevice, gom_dlna_server_device, G_TYPE_OBJECT,
-                         G_ADD_PRIVATE (GomDlnaServerDevice)
-                         G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
-                                                gom_dlna_server_device_async_initable_iface_init));
-
-
-#define RETURN_ON_ERROR(task, error, msg)                       \
-  G_STMT_START {                                                \
-    if (error != NULL)                                          \
-      {                                                         \
-        g_debug ("%s: %s: %s", G_STRFUNC, msg, error->message); \
-        g_task_return_error (task, error);                      \
-        g_object_unref (task);                                  \
-        return;                                                 \
-      }                                                         \
-  } G_STMT_END
-
-
-
+G_DEFINE_TYPE_WITH_PRIVATE (GomDlnaServerDevice, gom_dlna_server_device, G_TYPE_OBJECT)
 
 static void
 gom_dlna_server_device_get_property (GObject *object,
@@ -76,13 +53,17 @@ gom_dlna_server_device_get_property (GObject *object,
                               GParamSpec *pspec)
 {
   GomDlnaServerDevice *self = GOM_DLNA_SERVER_DEVICE (object);
-
+  GomDlnaServerDevicePrivate *priv = self->priv;
+  
   switch (prop_id)
     {
-    case PROP_SHARED_COUNT:
-      g_value_set_uint (value, gom_dlna_server_device_get_shared_count (self));
+    case PROP_UDN:
+      g_value_set_string (value, priv->udn);
       break;
 
+    case PROP_OBJECT_PATH:
+      g_value_set_string (value, priv->object_path);
+      
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -98,146 +79,53 @@ gom_dlna_server_device_set_property (GObject *object,
 {
   GomDlnaServerDevice *self = GOM_DLNA_SERVER_DEVICE (object);
   GomDlnaServerDevicePrivate *priv = self->priv;
-
+  GError *error = NULL;
+  
   switch (prop_id)
     {
-    case PROP_BUS_TYPE:
-      priv->bus_type = g_value_get_enum (value);
-      break;
-
-    case PROP_FLAGS:
-      priv->flags = g_value_get_flags (value);
-      break;
-
     case PROP_OBJECT_PATH:
       priv->object_path = g_value_dup_string (value);
+      priv->device =
+        dleyna_server_media_device_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
+                                                           G_DBUS_PROXY_FLAGS_NONE,
+                                                           "com.intel.dleyna-server",
+                                                           priv->object_path,
+                                                           NULL, /* GCancellable */
+                                                           &error);
+      if (error != NULL)
+        {
+          g_warning ("Unable to get device : %s", error->message);
+          g_error_free (error);
+        }
+
+      priv->container =
+        dleyna_server_media_container2_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
+                                                               G_DBUS_PROXY_FLAGS_NONE,
+                                                               "com.intel.dleyna-server",
+                                                               priv->object_path,
+                                                               NULL,
+                                                               &error);
+
+      if (error != NULL)
+        {
+          g_warning ("Error while getting proxy for Mediacontainer2 : %s",
+                     error->message);
+          g_error_free (error->message);
+        }
+
+      priv->friendly_name = dleyna_server_media_device_get_friendly_name (priv->device);
+      priv->udn = dleyna_server_media_device_get_udn (priv->device);
+      
       break;
 
-    case PROP_WELL_KNOWN_NAME:
-      priv->well_known_name = g_value_dup_string (value);
+    case PROP_NAME:
+      priv->friendly_name = g_value_dup_string (value);
       break;
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
     }
-}
-
-
-GomDlnaServerDevice*
-gom_dlna_server_device_new_for_bus_finish (GAsyncResult *result,
-                                           GError **error)
-{
-  GObject *object, *source_object;
-  GError *err = NULL;
-
-  source_object = g_async_result_get_source_object (result);
-  object = g_async_initable_new_finish (G_ASYNC_INITABLE (source_object), result, &err);
-  g_object_unref (source_object);
-
-  if (err != NULL)
-    {
-      g_clear_object (&object);
-      g_propagate_error (error, err);
-      return NULL;
-    }
-
-  return GOM_DLNA_SERVER_DEVICE (object);
-}
-
-void
-gom_dlna_server_device_new_for_bus (GBusType bus_type,
-                                    GDBusProxyFlags flags,
-                                    const gchar *well_known_name,
-                                    const gchar *object_path,
-                                    GCancellable *cancellable,
-                                    GAsyncReadyCallback callback,
-                                    gpointer user_data)
-{
-  g_async_initable_new_async (GOM_TYPE_DLNA_SERVER_DEVICE,
-                              G_PRIORITY_DEFAULT,
-                              cancellable,
-                              callback,
-                              user_data,
-                              "bus-type", bus_type,
-                              "flags", flags,
-                              "object-path", object_path,
-                              "well-known-name", well_known_name,
-                              NULL);
-}
-
-
-
-static void
-gom_dlna_server_device_get_icon_cb (GObject *source_object,
-                                    GAsyncResult *res,
-                                    gpointer user_data)
-{
-  GTask *task = G_TASK (user_data);
-  GInputStream *icon_stream;
-  GdkPixbuf *pixbuf;
-  GtkIconSize size;
-  gchar *icon_data;
-  gint height = -1;
-  gint width = -1;
-  gsize icon_data_size;
-  GError *error = NULL;
-
-  /* The icon data is forced to be a GVariant since the GDBus bindings
-   * assume bytestrings (type 'ay') to be nul-terminated and thus do
-   * not return the length of the buffer.
-   */
-  dleyna_server_media_device_call_get_icon_finish (DLEYNA_SERVER_MEDIA_DEVICE (source_object),
-                                                   &icon_data, NULL, res, &error);
-  RETURN_ON_ERROR (task, error, "Failed to call the GetIcon method");
-
-  size = (GtkIconSize) GPOINTER_TO_INT (g_task_get_task_data (task));
-  gtk_icon_size_lookup (size, &width, &height);
-  icon_data_size = sizeof (*icon_data);
-  
-  icon_stream = g_memory_input_stream_new_from_data (icon_data, icon_data_size, NULL);
-  pixbuf = gdk_pixbuf_new_from_stream_at_scale (icon_stream,
-                                                width,
-                                                height,
-                                                TRUE,
-                                                g_task_get_cancellable (task),
-                                                &error);
-  g_object_unref (icon_stream);
-
-  RETURN_ON_ERROR (task, error, "Failed to parse icon data");
-  g_task_return_pointer (task, pixbuf, g_object_unref);
-
-  g_object_unref (task);
-}
-
-GdkPixbuf *
-gom_dlna_server_device_get_icon_finish (GomDlnaServerDevice *self,
-                                        GAsyncResult *res,
-                                        GError **error)
-{
-  g_return_val_if_fail (g_task_is_valid (res, self), NULL);
-
-  return GDK_PIXBUF (g_task_propagate_pointer (G_TASK (res), error));
-}
-
-void
-gom_dlna_server_device_get_icon (GomDlnaServerDevice *self,
-                                 const gchar *requested_mimetype,
-                                 const gchar *resolution,
-                                 GtkIconSize size,
-                                 GCancellable *cancellable,
-                                 GAsyncReadyCallback callback,
-                                 gpointer user_data)
-{
-  GomDlnaServerDevicePrivate *priv = self->priv;
-  GTask *task;
-
-  task = g_task_new (self, cancellable, callback, user_data);
-  g_task_set_task_data (task, GINT_TO_POINTER (size), NULL);
-
-  dleyna_server_media_device_call_get_icon (priv->device, requested_mimetype, resolution,
-                                            cancellable, gom_dlna_server_device_get_icon_cb,
-                                            task);
 }
 
 const gchar *
@@ -262,64 +150,6 @@ gom_dlna_server_device_get_udn (GomDlnaServerDevice *self)
   return dleyna_server_media_device_get_udn (priv->device);
 }
 
-guint
-gom_dlna_server_device_get_shared_count (GomDlnaServerDevice *self)
-{
-  GomDlnaServerDevicePrivate *priv = self->priv;
-
-  return g_hash_table_size (priv->urls_to_item);
-}
-
-
-static void
-gom_dlna_server_device_proxy_new_cb (GObject *source_object,
-                                     GAsyncResult *res,
-                                     gpointer user_data)
-{
-  GTask *init_task = G_TASK (user_data);
-  GomDlnaServerDevice *self;
-  GError *error = NULL;
-
-  self = GOM_DLNA_SERVER_DEVICE (g_task_get_source_object (init_task));
-
-  self->priv->device = dleyna_server_media_device_proxy_new_for_bus_finish (res, &error);
-  RETURN_ON_ERROR (init_task, error, "Unable to load the MediaDevice interface");
-
-  g_task_return_boolean (init_task, TRUE);
-  g_object_unref (init_task);
-}
-
-
-static void
-gom_dlna_server_device_init_async (GAsyncInitable *initable,
-                                   int io_priority,
-                                   GCancellable *cancellable,
-                                   GAsyncReadyCallback callback,
-                                   gpointer user_data)
-{
-  GomDlnaServerDevice *self = GOM_DLNA_SERVER_DEVICE (initable);
-  GomDlnaServerDevicePrivate *priv = self->priv;
-  GTask *init_task;
-
-  init_task = g_task_new (initable, cancellable, callback, user_data);
-  g_task_set_priority (init_task, io_priority);
-
-  dleyna_server_media_device_proxy_new_for_bus (priv->bus_type,
-                                                G_DBUS_PROXY_FLAGS_NONE,
-                                                priv->well_known_name,
-                                                priv->object_path,
-                                                cancellable,
-                                                gom_dlna_server_device_proxy_new_cb,
-                                                init_task);
-}
-
-
-static void
-gom_dlna_server_device_async_initable_iface_init (GAsyncInitableIface *iface)
-{
-  iface->init_async = gom_dlna_server_device_init_async;
-}
-
 static void
 gom_dlna_server_device_dispose (GObject *object)
 {
@@ -327,7 +157,7 @@ gom_dlna_server_device_dispose (GObject *object)
   GomDlnaServerDevicePrivate *priv = self->priv;
 
   g_clear_object (&priv->device);
-  g_clear_pointer (&priv->urls_to_item, g_hash_table_unref);
+  g_clear_object (&priv->container);
 
   G_OBJECT_CLASS (gom_dlna_server_device_parent_class)->dispose (object);
 }
@@ -339,7 +169,7 @@ gom_dlna_server_device_finalize (GObject *object)
   GomDlnaServerDevice *self = GOM_DLNA_SERVER_DEVICE (object);
   GomDlnaServerDevicePrivate *priv = self->priv;
 
-  g_free (priv->well_known_name);
+  g_free (priv->friendly_name);
   g_free (priv->object_path);
 
   G_OBJECT_CLASS (gom_dlna_server_device_parent_class)->finalize (object);
@@ -352,10 +182,13 @@ gom_dlna_server_device_init (GomDlnaServerDevice *self)
 
   self->priv = gom_dlna_server_device_get_instance_private (self);
   priv = self->priv;
-
-  priv->urls_to_item = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
 }
 
+GomDlnaServerDevice *
+gom_dlna_server_device_new_from_object_path (const gchar *object_path)
+{
+  return g_object_new (GOM_TYPE_DLNA_SERVER_DEVICE, "object-path", object_path, NULL);
+}
 
 static void
 gom_dlna_server_device_class_init (GomDlnaServerDeviceClass *class)
@@ -368,63 +201,37 @@ gom_dlna_server_device_class_init (GomDlnaServerDeviceClass *class)
   gobject_class->set_property = gom_dlna_server_device_set_property;
 
   g_object_class_install_property (gobject_class,
-                                   PROP_BUS_TYPE,
-                                   g_param_spec_enum ("bus-type",
-                                                      "Bus Type",
-                                                      "The bus to connect to, defaults to the session one",
-                                                      G_TYPE_BUS_TYPE,
-                                                      G_BUS_TYPE_SESSION,
-                                                      G_PARAM_WRITABLE |
-                                                      G_PARAM_CONSTRUCT_ONLY |
-                                                      G_PARAM_STATIC_NAME |
-                                                      G_PARAM_STATIC_BLURB |
-                                                      G_PARAM_STATIC_NICK));
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_FLAGS,
-                                   g_param_spec_flags ("flags",
-                                                       "Flags",
-                                                       "Proxy flags",
-                                                       G_TYPE_DBUS_PROXY_FLAGS,
-                                                       G_DBUS_PROXY_FLAGS_NONE,
-                                                       G_PARAM_READABLE |
-                                                       G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY |
-                                                       G_PARAM_STATIC_NAME |
-                                                       G_PARAM_STATIC_BLURB |
-                                                       G_PARAM_STATIC_NICK));
-
-  g_object_class_install_property (gobject_class,
                                    PROP_OBJECT_PATH,
                                    g_param_spec_string ("object-path",
                                                         "Object Path",
                                                         "The object path the proxy is for",
                                                         NULL,
-                                                        G_PARAM_WRITABLE |
+                                                        G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_NAME |
                                                         G_PARAM_STATIC_BLURB |
                                                         G_PARAM_STATIC_NICK));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_SHARED_COUNT,
-                                   g_param_spec_uint ("shared-count",
-                                                      "Shared Count",
-                                                      "The number of shared items",
-                                                      0, G_MAXUINT, 0,
-                                                      G_PARAM_READABLE |
-                                                      G_PARAM_STATIC_NAME |
-                                                      G_PARAM_STATIC_BLURB |
-                                                      G_PARAM_STATIC_NICK));
-
-  g_object_class_install_property (gobject_class,
-                                   PROP_WELL_KNOWN_NAME,
-                                   g_param_spec_string ("well-known-name",
-                                                        "Well-Known Name",
+                                   PROP_NAME,
+                                   g_param_spec_string ("friendly-name",
+                                                        "Friendly Name",
                                                         "The well-known name of the service",
                                                         NULL,
                                                         G_PARAM_READABLE |
                                                         G_PARAM_WRITABLE |
+                                                        G_PARAM_CONSTRUCT_ONLY |
+                                                        G_PARAM_STATIC_NAME |
+                                                        G_PARAM_STATIC_BLURB |
+                                                        G_PARAM_STATIC_NICK));
+
+    g_object_class_install_property (gobject_class,
+                                   PROP_UDN,
+                                   g_param_spec_string ("udn",
+                                                        "UDN",
+                                                        "UDN of the device",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY |
                                                         G_PARAM_STATIC_NAME |
                                                         G_PARAM_STATIC_BLURB |

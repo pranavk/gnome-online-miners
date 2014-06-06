@@ -68,36 +68,11 @@ struct _GomDlnaServerDeviceClass
 
 GType                 gom_dlna_server_device_get_type           (void) G_GNUC_CONST;
 
-void                  gom_dlna_server_device_new_for_bus        (GBusType             bus_type,
-                                                                 GDBusProxyFlags      flags,
-                                                                 const gchar         *name,
-                                                                 const gchar         *object_path,
-                                                                 GCancellable        *cancellable,
-                                                                 GAsyncReadyCallback  callback,
-                                                                 gpointer             user_data);
-
-GomDlnaServerDevice   *gom_dlna_server_device_new_for_bus_finish (GAsyncResult        *res,
-                                                                  GError             **error);
-
 const gchar          *gom_dlna_server_device_get_object_path    (GomDlnaServerDevice  *server_device);
 
 const gchar          *gom_dlna_server_device_get_friendly_name  (GomDlnaServerDevice  *self);
 
 const gchar          *gom_dlna_server_device_get_udn            (GomDlnaServerDevice  *self);
-
-void                  gom_dlna_server_device_get_icon           (GomDlnaServerDevice  *self,
-                                                                 const gchar         *requested_mimetype,
-                                                                 const gchar         *resolution,
-                                                                 GtkIconSize          size,
-                                                                 GCancellable        *cancellable,
-                                                                 GAsyncReadyCallback  callback,
-                                                                 gpointer             user_data);
-
-GdkPixbuf *           gom_dlna_server_device_get_icon_finish    (GomDlnaServerDevice  *self,
-                                                                 GAsyncResult        *res,
-                                                                 GError             **error);
-
-guint                 gom_dlna_server_device_get_shared_count   (GomDlnaServerDevice *self);
 
 G_END_DECLS
 
