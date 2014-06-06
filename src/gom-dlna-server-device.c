@@ -48,9 +48,9 @@ G_DEFINE_TYPE_WITH_PRIVATE (GomDlnaServerDevice, gom_dlna_server_device, G_TYPE_
 
 static void
 gom_dlna_server_device_get_property (GObject *object,
-                              guint prop_id,
-                              GValue *value,
-                              GParamSpec *pspec)
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
 {
   GomDlnaServerDevice *self = GOM_DLNA_SERVER_DEVICE (object);
   GomDlnaServerDevicePrivate *priv = self->priv;
@@ -110,7 +110,7 @@ gom_dlna_server_device_set_property (GObject *object,
         {
           g_warning ("Error while getting proxy for Mediacontainer2 : %s",
                      error->message);
-          g_error_free (error->message);
+          g_error_free (error);
         }
 
       priv->friendly_name = dleyna_server_media_device_get_friendly_name (priv->device);
@@ -122,6 +122,9 @@ gom_dlna_server_device_set_property (GObject *object,
       priv->friendly_name = g_value_dup_string (value);
       break;
 
+    case PROP_UDN:
+      priv->udn = g_value_dup_string (value);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -142,6 +145,30 @@ gom_dlna_server_device_get_friendly_name (GomDlnaServerDevice *self)
   return dleyna_server_media_device_get_friendly_name (priv->device);
 }
 
+gboolean
+gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
+{
+  GomDlnaServerDevicePrivate *priv = self->priv;
+  GError *error = NULL;
+
+  GVariant *out;
+  gchar *query = g_strdup_printf ("MIMEType = \"image/jpeg\"");
+  gchar *filter[] = {"*"};
+  dleyna_server_media_container2_call_search_objects_sync (priv->container,
+                                                           query,
+                                                           0,
+                                                           0,
+                                                           filter,
+                                                           &out,
+                                                           NULL,
+                                                           &error);
+  if (error != NULL)
+    g_warning ("error found");
+  g_warning ("success");
+  g_warning (g_variant_get_data (out));
+  g_free (query);
+}
+
 const gchar *
 gom_dlna_server_device_get_udn (GomDlnaServerDevice *self)
 {
@@ -150,18 +177,12 @@ gom_dlna_server_device_get_udn (GomDlnaServerDevice *self)
   return dleyna_server_media_device_get_udn (priv->device);
 }
 
-static void
-gom_dlna_server_device_dispose (GObject *object)
+const gchar *
+gom_dlna_server_device_get_mimetype (GomDlnaServerDevice *self)
 {
-  GomDlnaServerDevice *self = GOM_DLNA_SERVER_DEVICE (object);
   GomDlnaServerDevicePrivate *priv = self->priv;
-
-  g_clear_object (&priv->device);
-  g_clear_object (&priv->container);
-
-  G_OBJECT_CLASS (gom_dlna_server_device_parent_class)->dispose (object);
+  return dleyna_server_media_container2_get_mimetype (priv->container);
 }
-
 
 static void
 gom_dlna_server_device_finalize (GObject *object)
@@ -169,6 +190,8 @@ gom_dlna_server_device_finalize (GObject *object)
   GomDlnaServerDevice *self = GOM_DLNA_SERVER_DEVICE (object);
   GomDlnaServerDevicePrivate *priv = self->priv;
 
+  g_clear_object (&priv->device);
+  g_clear_object (&priv->container);
   g_free (priv->friendly_name);
   g_free (priv->object_path);
 
@@ -178,10 +201,7 @@ gom_dlna_server_device_finalize (GObject *object)
 static void
 gom_dlna_server_device_init (GomDlnaServerDevice *self)
 {
-  GomDlnaServerDevicePrivate *priv;
-
   self->priv = gom_dlna_server_device_get_instance_private (self);
-  priv = self->priv;
 }
 
 GomDlnaServerDevice *
@@ -195,7 +215,6 @@ gom_dlna_server_device_class_init (GomDlnaServerDeviceClass *class)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (class);
 
-  gobject_class->dispose = gom_dlna_server_device_dispose;
   gobject_class->finalize = gom_dlna_server_device_finalize;
   gobject_class->get_property = gom_dlna_server_device_get_property;
   gobject_class->set_property = gom_dlna_server_device_set_property;
@@ -226,15 +245,15 @@ gom_dlna_server_device_class_init (GomDlnaServerDeviceClass *class)
                                                         G_PARAM_STATIC_NICK));
 
     g_object_class_install_property (gobject_class,
-                                   PROP_UDN,
-                                   g_param_spec_string ("udn",
-                                                        "UDN",
-                                                        "UDN of the device",
-                                                        NULL,
-                                                        G_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT_ONLY |
-                                                        G_PARAM_STATIC_NAME |
-                                                        G_PARAM_STATIC_BLURB |
-                                                        G_PARAM_STATIC_NICK));
+                                     PROP_UDN,
+                                     g_param_spec_string ("udn",
+                                                          "UDN",
+                                                          "UDN of the device",
+                                                          NULL,
+                                                          G_PARAM_READWRITE |
+                                                          G_PARAM_CONSTRUCT_ONLY |
+                                                          G_PARAM_STATIC_NAME |
+                                                          G_PARAM_STATIC_BLURB |
+                                                          G_PARAM_STATIC_NICK));
 }
 

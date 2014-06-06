@@ -21,5 +21,5 @@
  *
  */
 
-void gom_mediaserver_lib_get_photos (const gchar *udn,
-                                     gboolean dlnaSupported);
+void gom_mediaserver_get_photos (const gchar *udn,
+                                 gboolean dlnaSupported);

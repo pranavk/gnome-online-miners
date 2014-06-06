@@ -102,16 +102,19 @@ dlna_get_object_path (const gchar *target_udn,
 
 
 void gom_mediaserver_get_photos (const char *udn,
-                                     gboolean dlna_supported){
-  if (dlna_supported) /* initialise the dlna manager class here */
+                                 gboolean dlna_supported)
+{
+  if (dlna_supported)
     {
       GError *error;
       gchar *object_path;
       dlna_get_object_path (udn, &object_path);
       g_warning (object_path);
       GomDlnaServerDevice *device = gom_dlna_server_device_new_from_object_path (object_path);
-      
+      const gchar *name1 = gom_dlna_server_device_get_object_path (device);
       const gchar *name = gom_dlna_server_device_get_friendly_name (device);
-      g_warning ("SUCCESS %s", name);
+      gom_dlna_server_device_search_objects (device);
+      const gchar *name2 = gom_dlna_server_device_get_udn (device);
+      const gchar *name3 = gom_dlna_server_device_get_mimetype (device);
     }
 }

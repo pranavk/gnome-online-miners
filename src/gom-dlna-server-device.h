@@ -68,7 +68,12 @@ struct _GomDlnaServerDeviceClass
 
 GType                 gom_dlna_server_device_get_type           (void) G_GNUC_CONST;
 
+GomDlnaServerDevice  *gom_dlna_server_device_new_from_object_path (const gchar *object_path);
+
 const gchar          *gom_dlna_server_device_get_object_path    (GomDlnaServerDevice  *server_device);
+const gchar          *gom_dlna_server_device_get_mimetype    (GomDlnaServerDevice  *server_device);
+
+gboolean             gom_dlna_server_device_search_objects    (GomDlnaServerDevice  *device);
 
 const gchar          *gom_dlna_server_device_get_friendly_name  (GomDlnaServerDevice  *self);
 
