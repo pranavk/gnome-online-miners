@@ -112,8 +112,6 @@ void gom_mediaserver_get_photos (const char *udn,
       GomDlnaServerDevice *device = gom_dlna_server_device_new_from_object_path (object_path);
       
       const gchar *name = gom_dlna_server_device_get_friendly_name (device);
-      const gchar *udn = gom_dlna_server_device_get_udn (device);
-      guint count = gom_dlna_server_device_get_child_count (device);
-      g_warning ("SUCCESS %s %s %d", name, udn, count);
+      g_warning ("SUCCESS %s", name);
     }
 }

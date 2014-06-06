@@ -26,13 +26,13 @@
 #include <goa/goa.h>
 
 #include "gom-mediaserver-miner.h"
-#include "gom-dlna-server-manager.h"
-#include "gom-dlna-server-device.h"
+#include "gom-mediaserver-manager.h"
+#include "gom-mediaserver.h"
 
 #define MINER_IDENTIFIER "gd:media_server:miner:a4a47a3e-eb55-11e3-b983-14feb59cfa0e"
 
 struct _GomMediaServerMinerPrivate {
-  GomDlnaServerManager *dlna_mngr;
+  GomMediaServerManager *dlna_mngr;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (GomMediaServerMiner, gom_media_server_miner, GOM_TYPE_MINER)
@@ -41,7 +41,24 @@ static void
 query_media_server (GomAccountMinerJob *job,
                     GError **error)
 {
+  GomMediaServerMiner *miner = GOM_MEDIA_SERVER_MINER (job->miner);
+  GomMediaServerMinerPrivate *priv = miner->priv;
+
+  gboolean dlna_supported;
   
+  GoaObject *object = GOA_OBJECT (job->service);
+  const char *udn;
+
+  GoaMediaServer *mediaserver = goa_object_peek_media_server (object);
+  
+  g_object_get (G_OBJECT (mediaserver),
+                "dlna-supported", &dlna_supported,
+                NULL);
+  g_object_get (G_OBJECT (mediaserver),
+                "udn", &udn);
+
+  gom_mediaserver_get_photos (udn, dlna_supported);
+
 }
 
 static GObject *
@@ -68,8 +85,6 @@ static void
 gom_media_server_miner_init (GomMediaServerMiner *miner)
 {
   miner->priv = gom_media_server_miner_get_instance_private (miner);
-
-  miner->priv->dlna_mngr = gom_dlna_server_manager_dup_singleton ();
 }
 
 static void
