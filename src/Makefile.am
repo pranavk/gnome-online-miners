@@ -184,6 +184,7 @@ gom_mediaserver_miner_SOURCES = \
 nodist_gom_mediaserver_miner_SOURCES = \
     gom-dleyna-server-manager.h   gom-dleyna-server-manager.c \
     gom-dleyna-server-device.h    gom-dleyna-server-device.c  \
+    gom-dleyna-server-mediacontainer2.h    gom-dleyna-server-mediacontainer2.c  \
     $(NULL)
 
 gom_mediaserver_miner_CPPFLAGS = \
@@ -213,12 +214,14 @@ gom_mediaserver_miner_LDADD = \
 BUILT_SOURCES = \
     gom-dleyna-server-manager.h   gom-dleyna-server-manager.c \
     gom-dleyna-server-device.h    gom-dleyna-server-device.c  \
+    gom-dleyna-server-mediacontainer2.h    gom-dleyna-server-mediacontainer2.c  \
     $(NULL)
 
 EXTRA_DIST =  \
     gom-miner-main.c  \
     gom-dleyna-server-manager.xml \
     gom-dleyna-server-device.xml  \
+    gom-dleyna-server-mediacontainer2.xml  \
     $(NULL)
 
 gom-dleyna-server-manager.h gom-dleyna-server-manager.c: gom-dleyna-server-manager.xml
@@ -232,6 +235,13 @@ gom-dleyna-server-device.h gom-dleyna-server-device.c: gom-dleyna-server-device.
 	$(AM_V_GEN)gdbus-codegen \
     --c-namespace DleynaServer  \
     --generate-c-code gom-dleyna-server-device  \
+    --interface-prefix com.intel.dLeynaServer.  \
+    $<
+
+gom-dleyna-server-mediacontainer2.h gom-dleyna-server-mediacontainer2.c: gom-dleyna-server-mediacontainer2.xml
+	$(AM_V_GEN)gdbus-codegen \
+    --c-namespace DleynaServer  \
+    --generate-c-code gom-dleyna-server-mediacontainer2  \
     --interface-prefix com.intel.dLeynaServer.  \
     $<
 
