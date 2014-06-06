@@ -177,8 +177,8 @@ gom_mediaserver_miner_SOURCES = \
     gom-mediaserver-miner.h \
     gom-dlna-server-device.h \
     gom-dlna-server-device.c \
-    gom-dlna-server-manager.h \
-    gom-dlna-server-manager.c \
+		gom-mediaserver.c	\
+		gom-mediaserver.h	\
     $(NULL)
 
 nodist_gom_mediaserver_miner_SOURCES = \
@@ -210,7 +210,6 @@ gom_mediaserver_miner_LDADD = \
     $(NULL)
 
 
-
 BUILT_SOURCES = \
     gom-dleyna-server-manager.h   gom-dleyna-server-manager.c \
     gom-dleyna-server-device.h    gom-dleyna-server-device.c  \
@@ -235,14 +234,14 @@ gom-dleyna-server-device.h gom-dleyna-server-device.c: gom-dleyna-server-device.
 	$(AM_V_GEN)gdbus-codegen \
     --c-namespace DleynaServer  \
     --generate-c-code gom-dleyna-server-device  \
-    --interface-prefix com.intel.dLeynaServer.  \
+    --interface-prefix org.gnome.UPnP.  \
     $<
 
 gom-dleyna-server-mediacontainer2.h gom-dleyna-server-mediacontainer2.c: gom-dleyna-server-mediacontainer2.xml
 	$(AM_V_GEN)gdbus-codegen \
     --c-namespace DleynaServer  \
     --generate-c-code gom-dleyna-server-mediacontainer2  \
-    --interface-prefix com.intel.dLeynaServer.  \
+    --interface-prefix org.gnome.UPnP.  \
     $<
 
 -include $(top_srcdir)/git.mk
