@@ -184,6 +184,8 @@ gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
     }
   g_variant_iter_free (iter);
   g_free (query);
+
+  return TRUE;
 }
 
 const gchar *
