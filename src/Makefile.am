@@ -177,8 +177,10 @@ gom_mediaserver_miner_SOURCES = \
     gom-mediaserver-miner.h \
     gom-dlna-server-device.h \
     gom-dlna-server-device.c \
-		gom-mediaserver.c	\
-		gom-mediaserver.h	\
+    gom-dlna-server-manager.h \
+    gom-dlna-server-manager.c \
+    gom-mediaserver.c \
+    gom-mediaserver.h \
     $(NULL)
 
 nodist_gom_mediaserver_miner_SOURCES = \

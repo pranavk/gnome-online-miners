@@ -57,6 +57,7 @@ typedef struct _GomMediaServerMinerPrivate GomMediaServerMinerPrivate;
 
 struct _GomMediaServerMiner {
   GomMiner parent;
+  GomMediaServerMinerPrivate *priv;
 };
 
 struct _GomMediaServerMinerClass {

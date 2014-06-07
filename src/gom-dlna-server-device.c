@@ -176,10 +176,7 @@ gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
       g_variant_get (var, "a{sv}", &iter1);
       while (g_variant_iter_loop (iter1, "@{sv}", &var1))
         {
-          GVariant *var2, *var3;
-          gchar *str1;
-          GValue *val;
-          GVariantIter *iter2;
+          GVariant *var2;
           g_variant_get (var1, "{sv}", &str, &var2);
           g_warning (str);
         }
@@ -197,11 +194,11 @@ gom_dlna_server_device_get_udn (GomDlnaServerDevice *self)
   return dleyna_server_media_device_get_udn (priv->device);
 }
 
-const gchar *
-gom_dlna_server_device_get_mimetype (GomDlnaServerDevice *self)
+gboolean
+gom_dlna_server_device_get_searchable (GomDlnaServerDevice *self)
 {
   GomDlnaServerDevicePrivate *priv = self->priv;
-  return dleyna_server_media_container2_get_mimetype (priv->container);
+  return dleyna_server_media_container2_get_searchable (priv->container);
 }
 
 static void
