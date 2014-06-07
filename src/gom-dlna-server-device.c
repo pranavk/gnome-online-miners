@@ -152,7 +152,7 @@ gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
   GError *error = NULL;
 
   GVariant *out;
-  gchar *query = g_strdup_printf ("MIMEType = \"image/jpeg\"");
+  gchar *query = g_strdup_printf ("DisplayName contains \"pic\"");
   gchar *filter[] = {"*"};
   dleyna_server_media_container2_call_search_objects_sync (priv->container,
                                                            query,
@@ -165,7 +165,27 @@ gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
   if (error != NULL)
     g_warning ("error found");
   g_warning ("success");
-  g_warning (g_variant_get_data (out));
+  GVariantIter *iter;
+  gchar *str;
+  GVariant *var;
+  g_variant_get (out, "aa{sv}", &iter);
+  while (g_variant_iter_loop (iter, "@a{sv}", &var))
+    {
+      GVariantIter *iter1;
+      GVariant *var1;
+      g_variant_get (var, "a{sv}", &iter1);
+      while (g_variant_iter_loop (iter1, "@{sv}", &var1))
+        {
+          GVariant *var2, *var3;
+          gchar *str1;
+          GValue *val;
+          GVariantIter *iter2;
+          g_variant_get (var1, "{sv}", &str, &var2);
+          g_warning (str);
+        }
+      g_variant_iter_free (iter1);
+    }
+  g_variant_iter_free (iter);
   g_free (query);
 }
 

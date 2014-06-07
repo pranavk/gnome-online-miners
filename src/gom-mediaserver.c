@@ -90,12 +90,14 @@ dlna_get_object_path (const gchar *target_udn,
     }
 
   for (path = object_paths; *path != NULL; path++)
-    if (dlna_check_server (*path, target_udn))
-      {
-        *object_path = g_strdup (*path);
-        ret = TRUE;
-        break;
-      }
+    {
+      if (dlna_check_server (*path, target_udn))
+        {
+          *object_path = g_strdup (*path);
+          ret = TRUE;
+          break;
+        }
+    }
   
   return ret;
 }
@@ -108,13 +110,14 @@ void gom_mediaserver_get_photos (const char *udn,
     {
       GError *error;
       gchar *object_path;
-      dlna_get_object_path (udn, &object_path);
-      g_warning (object_path);
+      if (!dlna_get_object_path (udn, &object_path))
+        {
+          g_warning ("coudn't find object _path");
+          return;
+        }
+      g_warning ("working : %s", object_path);
+
       GomDlnaServerDevice *device = gom_dlna_server_device_new_from_object_path (object_path);
-      const gchar *name1 = gom_dlna_server_device_get_object_path (device);
-      const gchar *name = gom_dlna_server_device_get_friendly_name (device);
       gom_dlna_server_device_search_objects (device);
-      const gchar *name2 = gom_dlna_server_device_get_udn (device);
-      const gchar *name3 = gom_dlna_server_device_get_mimetype (device);
     }
 }
