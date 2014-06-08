@@ -32,9 +32,9 @@ struct _GomDlnaServerDevicePrivate
 {
   DleynaServerMediaDevice *device;
   DleynaServerMediaContainer2 *container;
-  gchar *udn;
-  gchar *object_path;
-  gchar *friendly_name;
+  const gchar *udn;
+  const gchar *object_path;
+  const gchar *friendly_name;
 };
 
 
@@ -166,9 +166,6 @@ gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
 
   if (error != NULL)
     g_warning ("error found");
-  g_warning ("success");
-
-
 
   g_free (query);
   return out;

@@ -18,7 +18,7 @@
  * 02110-1301, USA.
  *
  * Author: Pranav Kant <pranav913@gmail.com>
- * 
+ *
  */
 
 #include "config.h"
@@ -44,7 +44,6 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
                                  const gchar *creator,
                                  GError **error)
 {
-  GTimeVal new_mtime;
   const gchar *photo_id;
   const gchar *photo_name;
   const gchar *mimetype;
@@ -52,7 +51,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gchar *identifier;
   const gchar *class = "nmm:Photo";
   gchar *resource = NULL;
-  gboolean resource_exists, mtime_changed;
+  gboolean resource_exists;
   gchar *contact_resource;
 
   gchar **ar = g_strsplit_set (photo->path, "/", -1);
@@ -61,14 +60,14 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
     l = *ar;
     ar++;
   }
-  
+
   photo_id = g_strdup (l);
 
   photo_link = photo->url;
   photo_name = photo->name;
 
   mimetype = photo->mimetype;
-  
+
   identifier = g_strdup_printf ("mediaserver:%s", photo_id);
 
   /* remove from the list of the previous resources */
@@ -160,7 +159,7 @@ query_media_server (GomAccountMinerJob *job,
   const char *udn;
 
   GoaMediaServer *mediaserver = goa_object_peek_media_server (object);
-  
+
   g_object_get (G_OBJECT (mediaserver),
                 "dlna-supported", &dlna_supported,
                 NULL);
@@ -172,7 +171,11 @@ query_media_server (GomAccountMinerJob *job,
   gom_mediaserver_get_photos (priv->mngr, udn, dlna_supported, &list);
 
   if (list == NULL)
-    g_warning ("list has no content.");
+    {
+      /* TODO: get exact error from get_photos and print here. */
+      return;
+    }
+
 
   GList *l = NULL;
   for (l = list; l != NULL; l = l->next)
@@ -209,7 +212,7 @@ gom_media_server_miner_class_init (GomMediaServerMinerClass *klass)
   GomMinerClass *miner_class = GOM_MINER_CLASS (klass);
 
   oclass->finalize = gom_media_server_miner_finalize;
-  
+
   miner_class->goa_provider_type = "media_server";
   miner_class->miner_identifier = MINER_IDENTIFIER;
   miner_class->version = 1;
