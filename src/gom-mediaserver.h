@@ -21,6 +21,19 @@
  *
  */
 
+#ifndef _MEDIA_SERVER_H_
+#define _MEDIA_SERVER_H_
+
+typedef struct {
+  const gchar *name;
+  const gchar *url;
+  const gchar *mimetype;
+  const gchar *path;
+} Photo;
+
 void gom_mediaserver_get_photos (GObject *mngr,
                                  const gchar *udn,
-                                 gboolean dlnaSupported);
+                                 gboolean dlnaSupported,
+                                 GList **list);
+
+#endif

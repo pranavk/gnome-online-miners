@@ -26,6 +26,7 @@
 #include "gom-dleyna-server-device.h"
 #include "gom-dleyna-server-mediacontainer2.h"
 #include "gom-dlna-server-device.h"
+#include "gom-mediaserver.h"
 
 struct _GomDlnaServerDevicePrivate
 {
@@ -145,15 +146,15 @@ gom_dlna_server_device_get_friendly_name (GomDlnaServerDevice *self)
   return dleyna_server_media_device_get_friendly_name (priv->device);
 }
 
-gboolean
+GVariant *
 gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
 {
   GomDlnaServerDevicePrivate *priv = self->priv;
   GError *error = NULL;
-
+  
   GVariant *out;
   gchar *query = g_strdup_printf ("Type = \"image.photo\"");
-  gchar *filter[] = {"DisplayName", "URLs"};
+  const gchar const *filter[] = {"DisplayName", "URLs", "Path", "MIMEType"};
   dleyna_server_media_container2_call_search_objects_sync (priv->container,
                                                            query,
                                                            0,
@@ -162,43 +163,15 @@ gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
                                                            &out,
                                                            NULL,
                                                            &error);
+
   if (error != NULL)
     g_warning ("error found");
   g_warning ("success");
-  GVariantIter *iter;
-  gchar *str;
-  GVariant *var;
-  g_variant_get (out, "aa{sv}", &iter);
-  while (g_variant_iter_loop (iter, "@a{sv}", &var))
-    {
-      GVariantIter *iter1;
-      GVariant *var1;
-      g_variant_get (var, "a{sv}", &iter1);
-      while (g_variant_iter_loop (iter1, "@{sv}", &var1))
-        {
-          gchar *str1;
-          GVariant *var2;
-          GVariantIter *iter2;
-          g_variant_get (var1, "{sv}", &str, &var2);
-          g_print (str);
-          if (g_str_equal (str, "DisplayName"))
-            {
-              g_variant_get (var2, "s", &str1);
-              g_print (" : %s\n", str1);
-            }
-          else
-            {
-              g_variant_get (var2, "as", &iter2);
-              g_variant_iter_loop (iter2, "s", &str1);
-              g_print (" : %s\n", str1);
-            }
-        }
-      g_variant_iter_free (iter1);
-    }
-  g_variant_iter_free (iter);
-  g_free (query);
 
-  return TRUE;
+  
+
+  g_free (query);
+  return out;
 }
 
 const gchar *

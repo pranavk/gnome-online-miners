@@ -37,6 +37,117 @@ struct _GomMediaServerMinerPrivate {
 
 G_DEFINE_TYPE_WITH_PRIVATE (GomMediaServerMiner, gom_media_server_miner, GOM_TYPE_MINER)
 
+
+static gboolean
+account_miner_job_process_photo (GomAccountMinerJob *job,
+                                 Photo *photo,
+                                 const gchar *creator,
+                                 GError **error)
+{
+  GTimeVal new_mtime;
+  const gchar *photo_id;
+  const gchar *photo_name;
+  const gchar *mimetype;
+  const gchar *photo_link;
+  gchar *identifier;
+  const gchar *class = "nmm:Photo";
+  gchar *resource = NULL;
+  gboolean resource_exists, mtime_changed;
+  gchar *contact_resource;
+
+  gchar **ar = g_strsplit_set (photo->path, "/", -1);
+  gchar *l;
+  while (*ar != NULL){
+    l = *ar;
+    ar++;
+  }
+  
+  photo_id = g_strdup (l);
+
+  photo_link = photo->url;
+  photo_name = photo->name;
+
+  mimetype = photo->mimetype;
+  
+  identifier = g_strdup_printf ("mediaserver:%s", photo_id);
+
+  /* remove from the list of the previous resources */
+  g_hash_table_remove (job->previous_resources, identifier);
+
+  resource = gom_tracker_sparql_connection_ensure_resource
+    (job->connection,
+     job->cancellable, error,
+     &resource_exists,
+     job->datasource_urn, identifier,
+     "nfo:RemoteDataObject", class, NULL);
+
+  if (*error != NULL)
+    goto out;
+
+  gom_tracker_update_datasource (job->connection, job->datasource_urn,
+                                 resource_exists, identifier, resource,
+                                 job->cancellable, error);
+  if (*error != NULL)
+    goto out;
+
+  /* the resource changed - just set all the properties again */
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:url", photo_link);
+
+  if (*error != NULL)
+    goto out;
+
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:mimeType", mimetype);
+
+  if (*error != NULL)
+    goto out;
+
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:title", photo_name);
+
+  if (*error != NULL)
+    goto out;
+
+  contact_resource = gom_tracker_utils_ensure_contact_resource
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, creator);
+
+  if (*error != NULL)
+    goto out;
+
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nco:creator", contact_resource);
+
+  g_free (contact_resource);
+  g_print ("all done\n");
+  if (*error != NULL)
+    goto out;
+
+ out:
+  g_free (resource);
+  g_free (identifier);
+
+  if (*error != NULL)
+    return FALSE;
+
+  return TRUE;
+}
+
+
 static void
 query_media_server (GomAccountMinerJob *job,
                     GError **error)
@@ -44,7 +155,7 @@ query_media_server (GomAccountMinerJob *job,
   GomMediaServerMiner *self = GOM_MEDIA_SERVER_MINER (job->miner);
   GomMediaServerMinerPrivate *priv = self->priv;
   gboolean dlna_supported;
-  
+  GError *local_error = NULL;
   GoaObject *object = GOA_OBJECT (job->service);
   const char *udn;
 
@@ -57,7 +168,18 @@ query_media_server (GomAccountMinerJob *job,
                 "udn", &udn,
                 NULL);
 
-  gom_mediaserver_get_photos (priv->mngr, udn, dlna_supported);
+  GList *list = NULL;
+  gom_mediaserver_get_photos (priv->mngr, udn, dlna_supported, &list);
+
+  if (list == NULL)
+    g_warning ("list has no content.");
+
+  GList *l = NULL;
+  for (l = list; l != NULL; l = l->next)
+    {
+      account_miner_job_process_photo (job, l->data, "media_server", &local_error);
+      g_slice_free (Photo, l->data);
+    }
 }
 
 static GObject *
