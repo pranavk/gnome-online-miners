@@ -133,7 +133,7 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
      "nco:creator", contact_resource);
 
   g_free (contact_resource);
-  g_print ("all done\n");
+
   if (*error != NULL)
     goto out;
 

@@ -236,7 +236,7 @@ gom-dleyna-server-device.h gom-dleyna-server-device.c: gom-dleyna-server-device.
 	$(AM_V_GEN)gdbus-codegen \
     --c-namespace DleynaServer  \
     --generate-c-code gom-dleyna-server-device  \
-    --interface-prefix org.gnome.UPnP.  \
+    --interface-prefix com.intel.dLeynaServer.  \
     $<
 
 gom-dleyna-server-mediacontainer2.h gom-dleyna-server-mediacontainer2.c: gom-dleyna-server-mediacontainer2.xml
