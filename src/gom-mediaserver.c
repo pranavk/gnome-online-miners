@@ -86,13 +86,13 @@ void gom_mediaserver_get_photos (GObject *mngr,
                       g_variant_get (var2, "s", &str1);
                       photo->mimetype = g_strdup (str1);
                     }
-                  
+
                   g_free (str);
                   g_free (str1);
                 }
               *list = g_list_prepend (*list, photo);
             }//outer while
-        }//if 
+        }//if
       else
         {
           g_print ("Device %s is not searchable\n", udn);

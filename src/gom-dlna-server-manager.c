@@ -73,7 +73,7 @@ gom_dlna_server_manager_server_found_cb (GomDlnaServerManager *self,
   GomDlnaServerManagerPrivate *priv = self->priv;
   GomDlnaServerDevice *server;
   const gchar *udn;
-  
+
   server = gom_dlna_server_device_new_from_object_path (object_path);
 
   udn = gom_dlna_server_device_get_udn (server);
@@ -224,11 +224,11 @@ gom_dlna_server_manager_get_device (GomDlnaServerManager *self,
 {
   GomDlnaServerManagerPrivate *priv = self->priv;
   GomDlnaServerDevice *device;
-  
+
   device = GOM_DLNA_SERVER_DEVICE (g_hash_table_lookup (priv->udn_to_server, udn));
   if (device == NULL)
     return NULL;
-  
+
   return g_object_ref (device);
 }
 

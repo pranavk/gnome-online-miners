@@ -18,7 +18,7 @@
  * 02110-1301, USA.
  *
  * Author: Pranav Kant <pranav913@gmail.com>
- * 
+ *
  */
 
 #ifndef GOM_DLNA_SERVER_DEVICE_H
@@ -73,7 +73,7 @@ GomDlnaServerDevice  *gom_dlna_server_device_new_from_object_path (const gchar *
 const gchar          *gom_dlna_server_device_get_object_path    (GomDlnaServerDevice  *server_device);
 gboolean          gom_dlna_server_device_get_searchable    (GomDlnaServerDevice  *server_device);
 
-GVariant*             gom_dlna_server_device_search_objects    (GomDlnaServerDevice  *device);
+GVariant             *gom_dlna_server_device_search_objects    (GomDlnaServerDevice  *device);
 
 const gchar          *gom_dlna_server_device_get_friendly_name  (GomDlnaServerDevice  *self);
 

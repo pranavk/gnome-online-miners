@@ -55,7 +55,7 @@ gom_dlna_server_device_get_property (GObject *object,
 {
   GomDlnaServerDevice *self = GOM_DLNA_SERVER_DEVICE (object);
   GomDlnaServerDevicePrivate *priv = self->priv;
-  
+
   switch (prop_id)
     {
     case PROP_UDN:
@@ -64,7 +64,7 @@ gom_dlna_server_device_get_property (GObject *object,
 
     case PROP_OBJECT_PATH:
       g_value_set_string (value, priv->object_path);
-      
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -81,7 +81,7 @@ gom_dlna_server_device_set_property (GObject *object,
   GomDlnaServerDevice *self = GOM_DLNA_SERVER_DEVICE (object);
   GomDlnaServerDevicePrivate *priv = self->priv;
   GError *error = NULL;
-  
+
   switch (prop_id)
     {
     case PROP_OBJECT_PATH:
@@ -116,7 +116,7 @@ gom_dlna_server_device_set_property (GObject *object,
 
       priv->friendly_name = dleyna_server_media_device_get_friendly_name (priv->device);
       priv->udn = dleyna_server_media_device_get_udn (priv->device);
-      
+
       break;
 
     case PROP_NAME:
@@ -151,7 +151,7 @@ gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
 {
   GomDlnaServerDevicePrivate *priv = self->priv;
   GError *error = NULL;
-  
+
   GVariant *out;
   gchar *query = g_strdup_printf ("Type = \"image.photo\"");
   const gchar const *filter[] = {"DisplayName", "URLs", "Path", "MIMEType"};
@@ -168,7 +168,7 @@ gom_dlna_server_device_search_objects (GomDlnaServerDevice *self)
     g_warning ("error found");
   g_warning ("success");
 
-  
+
 
   g_free (query);
   return out;
@@ -261,4 +261,3 @@ gom_dlna_server_device_class_init (GomDlnaServerDeviceClass *class)
                                                           G_PARAM_STATIC_BLURB |
                                                           G_PARAM_STATIC_NICK));
 }
-
