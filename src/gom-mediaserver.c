@@ -35,7 +35,6 @@ void gom_mediaserver_get_photos (GObject *mngr,
 {
   if (dlna_supported)
     {
-      g_print (udn);
       GomDlnaServerManager *dlna_mngr = GOM_DLNA_SERVER_MANAGER (mngr);
       GomDlnaServerDevice *device = gom_dlna_server_manager_get_device (dlna_mngr, udn);
       if (device == NULL)
@@ -46,7 +45,9 @@ void gom_mediaserver_get_photos (GObject *mngr,
       if (gom_dlna_server_device_get_searchable (device))
         {
           g_print ("Device %s is searchable\n", udn);
-        }else
+          gom_dlna_server_device_search_objects (device);
+        }
+      else
         {
           g_print ("Device %s is not searchable\n", udn);
         }
