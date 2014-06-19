@@ -149,6 +149,10 @@ gom_media_server_miner_SOURCES = \
     gom-media-server-miner-main.c \
     gom-media-server-miner.c \
     gom-media-server-miner.h \
+    gom-dlna-server.c \
+    gom-dlna-server.h \
+    gom-dlna-servers-manager.c \
+    gom-dlna-servers-manager.h \
     $(NULL)
 
 gom_media_server_miner_CPPFLAGS = \
