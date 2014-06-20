@@ -100,7 +100,7 @@
       <arg type="o" name="Path" direction="in"></arg>
       <arg type="o" name="RefPath" direction="out"></arg>
     </method>
-    <property type="u" name="ChildCount" access="read"></property>
+    <property type="i" name="ChildCount" access="read"></property>
     <property type="b" name="Searchable" access="read"></property>
     <property type="a(sb)" name="CreateClasses" access="read"></property>
     <property type="u" name="ContainerUpdateID" access="read"></property>
