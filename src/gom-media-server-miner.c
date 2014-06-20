@@ -29,6 +29,7 @@
 #include "gom-dlna-servers-manager.h"
 #include "gom-dlna-server.h"
 #include "gom-upnp-media-container2.h"
+#include "gom-dleyna-server-media-device.h"
 
 #define MINER_IDENTIFIER "gd:media-server:miner:a4a47a3e-eb55-11e3-b983-14feb59cfa0e"
 
@@ -42,6 +43,7 @@ typedef struct {
   const gchar *mimetype;
   const gchar *path;
   const gchar *type;
+  const gchar *parent;
 } PhotoItem;
 
 G_DEFINE_TYPE_WITH_PRIVATE (GomMediaServerMiner, gom_media_server_miner, GOM_TYPE_MINER)
@@ -50,14 +52,19 @@ G_DEFINE_TYPE_WITH_PRIVATE (GomMediaServerMiner, gom_media_server_miner, GOM_TYP
 static gboolean
 account_miner_job_process_photo (GomAccountMinerJob *job,
                                  PhotoItem *photo,
+                                 const gchar *udn,
                                  const gchar *creator,
+                                 const gchar *parent_name,
                                  GError **error)
 {
   const gchar *photo_id;
+  const gchar *parent_id;
   const gchar *photo_name;
   const gchar *mimetype;
   const gchar *photo_link;
   gchar *identifier;
+  gchar *parent_identifier;
+  gchar *parent_resource;
   const gchar *class = "nmm:Photo";
   gchar *resource = NULL;
   gboolean resource_exists;
@@ -65,14 +72,16 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
   gchar **tmp_arr;
 
   tmp_arr = g_strsplit_set (photo->path, "/", -1);
-
   photo_id = g_strdup (tmp_arr[g_strv_length (tmp_arr) - 1]);
+
+  tmp_arr = g_strsplit_set (photo->parent, "/", -1);
+  parent_id = g_strdup (tmp_arr[g_strv_length (tmp_arr) - 1]);
+
   photo_link = photo->url;
   photo_name = photo->name;
-
   mimetype = photo->mimetype;
 
-  identifier = g_strdup_printf ("media-server:%s", photo_id);
+  identifier = g_strdup_printf ("media-server:%s:%s", udn, photo_id);
 
   /* remove from the list of the previous resources */
   g_hash_table_remove (job->previous_resources, identifier);
@@ -92,6 +101,44 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
                                  job->cancellable, error);
   if (*error != NULL)
     goto out;
+
+  /* Setting the parent for photo item. */
+  parent_identifier = g_strdup_printf ("photos:collection:media-server:%s:%s",
+                                       udn, parent_id);
+  parent_resource = gom_tracker_sparql_connection_ensure_resource (job->connection,
+                                                                   job->cancellable,
+                                                                   error,
+                                                                   &resource_exists,
+                                                                   job->datasource_urn,
+                                                                   parent_identifier,
+                                                                   "nfo:RemoteDataObject",
+                                                                   "nfo:DataContainer",
+                                                                   NULL);
+
+  if (*error != NULL)
+    goto out;
+
+  gom_tracker_update_datasource (job->connection, job->datasource_urn,
+                                 resource_exists, parent_identifier, parent_resource,
+                                 job->cancellable, error);
+
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+    job->cancellable, error,
+    job->datasource_urn, resource,
+     "nie:isPartOf", parent_resource);
+
+  if (*error != NULL)
+      goto out;
+
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, parent_resource,
+     "nie:title", parent_name);
+
+  if (*error != NULL)
+      goto out;
 
   /* the resource changed - just set all the properties again */
   gom_tracker_sparql_connection_insert_or_replace_triple
@@ -143,6 +190,8 @@ account_miner_job_process_photo (GomAccountMinerJob *job,
  out:
   g_free (resource);
   g_free (identifier);
+  g_free (parent_resource);
+  g_free (parent_identifier);
   g_strfreev (tmp_arr);
 
   if (*error != NULL)
@@ -169,6 +218,9 @@ generate_photo_item_from_variant (GVariant *var)
 
   g_variant_lookup (var, "Path", "o", &str);
   photo->path = g_strdup (str);
+
+  g_variant_lookup (var, "Parent", "o", &str);
+  photo->parent = g_strdup (str);
 
   g_variant_lookup (var, "Type", "s", &str);
   photo->type = g_strdup (str);
@@ -229,7 +281,7 @@ find_photos (const gchar   *obj_path,
              GList        **photos_list)
 {
   UpnpMediaContainer2 *proxy = NULL;
-  const gchar *const filter[] = {"DisplayName","Type","Path", "URLs", "MIMEType"};
+  const gchar *const filter[] = {"DisplayName","Type","Path", "URLs", "MIMEType", "Parent"};
   GVariant *var = NULL;
   GError *error = NULL;
   GList *containers = NULL, *tmp;
@@ -264,7 +316,7 @@ find_photos (const gchar   *obj_path,
       g_error_free (error);
       goto out;
     }
-    
+
   if (var == NULL)
     goto out;
 
@@ -289,16 +341,13 @@ gom_media_server_get_photos (GObject     *mngr,
                              const gchar *udn)
 {
   GomDlnaServersManager *dlna_mngr = GOM_DLNA_SERVERS_MANAGER (mngr);
-  GomDlnaServer *server = gom_dlna_servers_manager_get_server (dlna_mngr, udn);
+  GomDlnaServer *server = gom_dlna_servers_manager_get_server_from_udn (dlna_mngr, udn);
   GList *photos_list = NULL;
   GError *error = NULL;
   PhotoItem *photo;
   GVariant *out, *var;
   GVariantIter *iter = NULL;
   const gchar *obj_path;
-
-  if (server == NULL)
-    return NULL; /* Server is offline. */
 
   if (gom_dlna_server_get_searchable (server))
     {
@@ -337,21 +386,37 @@ query_media_server (GomAccountMinerJob *job,
   GomMediaServerMiner *self = GOM_MEDIA_SERVER_MINER (job->miner);
   GomMediaServerMinerPrivate *priv = self->priv;
   const gchar *udn, *friendly_name;
+  const gchar *parent_name;
   GError *local_error = NULL;
   GoaMediaServer *mediaserver;
+  GHashTable *path_to_name;
   GList *photos_list, *tmp;
   GomDlnaServer *server;
+  PhotoItem *photo;
   GoaObject *object = GOA_OBJECT (g_hash_table_lookup (job->services, "photos"));
 
+  path_to_name  = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
   mediaserver   = goa_object_peek_media_server (object);
   udn           = goa_media_server_get_udn (mediaserver);
-  server        = gom_dlna_servers_manager_get_server (GOM_DLNA_SERVERS_MANAGER (priv->mngr),
-                                                       udn);
+  server        = gom_dlna_servers_manager_get_server_from_udn (GOM_DLNA_SERVERS_MANAGER (priv->mngr),
+                                                                udn);
+  if (server == NULL)
+    return; /* Device is offline */
+
   friendly_name = gom_dlna_server_get_friendly_name (server);
   photos_list   = gom_media_server_get_photos (priv->mngr, udn);
   for (tmp = photos_list; tmp != NULL; tmp = tmp->next)
     {
-      account_miner_job_process_photo (job, tmp->data, friendly_name, &local_error);
+      photo       = tmp->data;
+      parent_name = g_hash_table_lookup (path_to_name, (gpointer) photo->parent);
+      if (parent_name == NULL)
+        {
+          parent_name = gom_dlna_server_get_display_name_from_object_path (server, photo->parent);
+          g_hash_table_insert (path_to_name,
+                               (gpointer) g_strdup (photo->parent),
+                               (gpointer) g_strdup (parent_name));
+        }
+      account_miner_job_process_photo (job, tmp->data, udn, friendly_name, parent_name, &local_error);
       g_slice_free (PhotoItem, tmp->data);
       if (local_error != NULL)
         {
@@ -360,6 +425,7 @@ query_media_server (GomAccountMinerJob *job,
           g_error_free (local_error);
         }
     }
+  g_hash_table_unref (path_to_name);
   g_object_unref (server);
 }
 

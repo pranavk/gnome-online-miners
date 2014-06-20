@@ -268,13 +268,26 @@ gom_dlna_servers_manager_class_init (GomDlnaServersManagerClass *class)
 
 
 GomDlnaServer *
-gom_dlna_servers_manager_get_server (GomDlnaServersManager *self,
-                                     const gchar           *udn)
+gom_dlna_servers_manager_get_server_from_udn (GomDlnaServersManager *self,
+                                              const gchar           *udn)
 {
   GomDlnaServersManagerPrivate *priv = self->priv;
-  GomDlnaServer *server;
+  GomDlnaServer *server = NULL;
 
-  server = GOM_DLNA_SERVER (g_hash_table_lookup (priv->udn_to_server, udn));
+  server = GOM_DLNA_SERVER (g_hash_table_lookup (priv->udn_to_server, (gpointer) udn));
+
+  return server != NULL ? g_object_ref (server) : NULL;
+}
+
+
+GomDlnaServer *
+gom_dlna_servers_manager_get_server_from_path (GomDlnaServersManager *self,
+                                               const gchar           *path)
+{
+  GomDlnaServersManagerPrivate *priv = self->priv;
+  GomDlnaServer *server = NULL;
+
+  server = GOM_DLNA_SERVER (g_hash_table_lookup (priv->servers, (gpointer) path));
 
   return server != NULL ? g_object_ref (server) : NULL;
 }

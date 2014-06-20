@@ -66,12 +66,15 @@ struct _GomDlnaServersManagerClass
   GObjectClass parent_class;
 };
 
-GType                    gom_dlna_servers_manager_get_type           (void) G_GNUC_CONST;
+GType                    gom_dlna_servers_manager_get_type             (void) G_GNUC_CONST;
 
-GomDlnaServersManager   *gom_dlna_servers_manager_dup_singleton      (void);
+GomDlnaServersManager   *gom_dlna_servers_manager_dup_singleton        (void);
 
-GomDlnaServer           *gom_dlna_servers_manager_get_server         (GomDlnaServersManager *self,
-                                                                      const gchar *udn);
+GomDlnaServer           *gom_dlna_servers_manager_get_server_from_udn  (GomDlnaServersManager *self,
+                                                                        const gchar *udn);
+
+GomDlnaServer           *gom_dlna_servers_manager_get_server_from_path (GomDlnaServersManager *self,
+                                                                        const gchar *path);
 
 G_END_DECLS
 

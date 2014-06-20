@@ -24,6 +24,11 @@
 
 <node>
   <interface name="com.intel.dLeynaServer.MediaDevice">
+    <method name="BrowseObjects">
+      <arg type="ao" name="Objects" direction="in"></arg>
+      <arg type="as" name="Filter" direction="in"></arg>
+      <arg type="aa{sv}" name="Children" direction="out"></arg>
+    </method>
     <method name="Cancel"></method>
     <method name="GetIcon">
       <arg type="s" name="RequestedMimeType" direction="in"></arg>

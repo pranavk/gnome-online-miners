@@ -65,26 +65,30 @@ struct _GomDlnaServerClass
   GObjectClass parent_class;
 };
 
-GType                 gom_dlna_server_get_type                  (void) G_GNUC_CONST;
+GType                 gom_dlna_server_get_type                         (void) G_GNUC_CONST;
 
-GomDlnaServer        *gom_dlna_server_new_from_object_path      (const gchar *object_path);
+GomDlnaServer        *gom_dlna_server_new_from_object_path             (const gchar *object_path);
 
-GomDlnaServer        *gom_dlna_server_new_for_bus               (GBusType bus_type,
-                                                                 GDBusProxyFlags flags,
-                                                                 const gchar *well_known_name,
-                                                                 const gchar *object_path,
-                                                                 GCancellable *cancellable,
-                                                                 GError **error);
+GomDlnaServer        *gom_dlna_server_new_for_bus                      (GBusType bus_type,
+                                                                        GDBusProxyFlags flags,
+                                                                        const gchar *well_known_name,
+                                                                        const gchar *object_path,
+                                                                        GCancellable *cancellable,
+                                                                        GError **error);
 
-const gchar          *gom_dlna_server_get_object_path           (GomDlnaServer  *server);
+const gchar          *gom_dlna_server_get_object_path                   (GomDlnaServer  *server);
 
-gboolean              gom_dlna_server_get_searchable            (GomDlnaServer  *server);
+gboolean              gom_dlna_server_get_searchable                    (GomDlnaServer  *server);
 
-GVariant             *gom_dlna_server_search_objects            (GomDlnaServer  *device, GError **error);
+GVariant             *gom_dlna_server_search_objects                    (GomDlnaServer  *device,
+                                                                         GError **error);
 
-const gchar          *gom_dlna_server_get_friendly_name         (GomDlnaServer  *self);
+const gchar          *gom_dlna_server_get_friendly_name                 (GomDlnaServer  *self);
 
-const gchar          *gom_dlna_server_get_udn                   (GomDlnaServer  *self);
+const gchar          *gom_dlna_server_get_udn                           (GomDlnaServer  *self);
+
+const gchar          *gom_dlna_server_get_display_name_from_object_path (GomDlnaServer *self,
+                                                                         const gchar *path);
 
 G_END_DECLS
 

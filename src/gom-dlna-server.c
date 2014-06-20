@@ -286,7 +286,7 @@ gom_dlna_server_search_objects (GomDlnaServer *self, GError **error)
   GomDlnaServerPrivate *priv = self->priv;
   GVariant *out = NULL;
   gchar *query = g_strdup_printf ("Type = \"image.photo\"");
-  const gchar const *filter[] = {"DisplayName", "URLs", "Path", "MIMEType"};
+  const gchar *const filter[] = {"DisplayName", "URLs", "Path", "MIMEType", "Parent", "Type", NULL};
 
   upnp_media_container2_call_search_objects_sync (priv->container,
                                                   query,
@@ -317,4 +317,42 @@ gom_dlna_server_get_searchable (GomDlnaServer *self)
 {
   GomDlnaServerPrivate *priv = self->priv;
   return upnp_media_container2_get_searchable (priv->container);
+}
+
+
+const gchar *
+gom_dlna_server_get_display_name_from_object_path (GomDlnaServer *self,
+                                                   const gchar *path)
+{
+  GomDlnaServerPrivate *priv = self->priv;
+  GError *error = NULL;
+  gchar *str = NULL;
+  GVariant *out, *var;
+  const gchar *const arg_objects[] = {path, NULL};
+  const gchar *const filter[] = {"DisplayName", NULL};
+
+  dleyna_server_media_device_call_browse_objects_sync (priv->device,
+                                                       arg_objects,
+                                                       filter,
+                                                       &out,
+                                                       NULL,
+                                                       &error);
+
+  if (error != NULL)
+    {
+      g_warning ("Unable to call browse objects: %s",
+                 error->message);
+      g_error_free (error);
+      goto out;
+    }
+
+  var = g_variant_get_child_value (out, 0);
+  g_variant_lookup (var, "DisplayName", "s", &str);
+
+ out:
+  if (out != NULL)
+    g_variant_unref (out);
+  if (var != NULL)
+    g_variant_unref (var);
+  return str;
 }
