@@ -36,11 +36,11 @@ G_DEFINE_TYPE (GomGDataMiner, gom_gdata_miner, GOM_TYPE_MINER)
 
 static gboolean
 account_miner_job_process_entry (GomAccountMinerJob *job,
+                                 GDataDocumentsService *service,
                                  GDataDocumentsEntry *doc_entry,
                                  GError **error)
 {
   GDataEntry *entry = GDATA_ENTRY (doc_entry);
-  GDataService *service;
   gchar *resource = NULL;
   gchar *date, *identifier;
   const gchar *class = NULL;
@@ -240,9 +240,8 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
       g_free (contact_resource);
     }
 
-  service = GDATA_SERVICE (g_hash_table_lookup (job->services, "documents"));
   access_rules = gdata_access_handler_get_rules (GDATA_ACCESS_HANDLER (entry),
-                                                 service,
+                                                 GDATA_SERVICE (service),
                                                  job->cancellable,
                                                  NULL, NULL, error);
 
@@ -307,25 +306,475 @@ account_miner_job_process_entry (GomAccountMinerJob *job,
   return TRUE;
 }
 
+static gboolean
+account_miner_job_process_photo (GomAccountMinerJob *job,
+                                 GDataPicasaWebFile *photo,
+                                 const gchar *parent_resource_urn,
+                                 GError **error)
+{
+  GList *media_content;
+  gchar *resource = NULL, *equipment_resource = NULL;
+  gchar *contact_resource, *date, *identifier;
+  gboolean resource_exists, mtime_changed;
+  gint64 new_mtime;
+  gint64 timestamp;
+
+  const gchar *flash_off = "http://www.tracker-project.org/temp/nmm#flash-off";
+  const gchar *flash_on = "http://www.tracker-project.org/temp/nmm#flash-on";
+
+  gboolean flash;
+  const gchar *credit;
+  const gchar *id;
+  const gchar *make;
+  const gchar *model;
+  const gchar *title;
+  const gchar *summary;
+  const gchar *mime;
+
+  gchar *exposure;
+  gchar *focal_length;
+  gchar *fstop;
+  gchar *iso;
+  gchar *width;
+  gchar *height;
+
+  GDataLink *alternate;
+  const gchar *alternate_uri;
+
+  id = gdata_entry_get_id (GDATA_ENTRY (photo));
+  identifier = g_strdup_printf ("google:picasaweb:%s", id);
+
+  /* remove from the list of the previous resources */
+  g_hash_table_remove (job->previous_resources, identifier);
+
+  resource = gom_tracker_sparql_connection_ensure_resource
+    (job->connection,
+     job->cancellable, error,
+     &resource_exists,
+     job->datasource_urn, identifier,
+     "nfo:RemoteDataObject", "nmm:Photo", NULL);
+
+  if (*error != NULL)
+    goto out;
+
+  gom_tracker_update_datasource (job->connection, job->datasource_urn,
+                                 resource_exists, identifier, resource,
+                                 job->cancellable, error);
+  if (*error != NULL)
+    goto out;
+
+  /* Check updated time to avoid updating the DB if it has not
+   * been modified since our last run
+   */
+  new_mtime = gdata_entry_get_updated (GDATA_ENTRY (photo));
+  mtime_changed = gom_tracker_update_mtime (job->connection, new_mtime,
+                                            resource_exists, identifier, resource,
+                                            job->cancellable, error);
+
+  if (*error != NULL)
+    goto out;
+
+  /* avoid updating the DB if the resource already exists and has not
+   * been modified since our last run.
+   */
+  if (!mtime_changed)
+    goto out;
+
+  /* the resource changed - just set all the properties again */
+  alternate = gdata_entry_look_up_link (GDATA_ENTRY (photo), GDATA_LINK_ALTERNATE);
+  alternate_uri = gdata_link_get_uri (alternate);
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:url", alternate_uri);
+
+  if (*error != NULL)
+    goto out;
+
+  summary = gdata_entry_get_summary ((GDATA_ENTRY (photo)));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:description", summary);
+
+  if (*error != NULL)
+    goto out;
+
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:isPartOf", parent_resource_urn);
+
+  if (*error != NULL)
+    goto out;
+
+  media_content = gdata_picasaweb_file_get_contents (photo);
+  mime = gdata_media_content_get_content_type (GDATA_MEDIA_CONTENT (media_content->data));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:mimeType", mime);
+
+  if (*error != NULL)
+    goto out;
+
+  title = gdata_entry_get_title ((GDATA_ENTRY (photo)));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:title", title);
+
+  if (*error != NULL)
+    goto out;
+
+  credit = gdata_picasaweb_file_get_credit (photo);
+  contact_resource = gom_tracker_utils_ensure_contact_resource
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, credit);
+
+  if (*error != NULL)
+    goto out;
+
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nco:creator", contact_resource);
+
+  g_free (contact_resource);
+  if (*error != NULL)
+    goto out;
+
+  exposure = g_strdup_printf ("%f", gdata_picasaweb_file_get_exposure (photo));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nmm:exposureTime", exposure);
+  g_free (exposure);
+
+  if (*error != NULL)
+    goto out;
+
+  focal_length = g_strdup_printf ("%f", gdata_picasaweb_file_get_focal_length (photo));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nmm:focalLength", focal_length);
+  g_free (focal_length);
+
+  if (*error != NULL)
+    goto out;
+
+  fstop = g_strdup_printf ("%f", gdata_picasaweb_file_get_fstop (photo));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nmm:fnumber", fstop);
+  g_free (fstop);
+
+  if (*error != NULL)
+    goto out;
+
+  iso = g_strdup_printf ("%ld", (glong) gdata_picasaweb_file_get_iso (photo));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nmm:isoSpeed", iso);
+  g_free (iso);
+
+  if (*error != NULL)
+    goto out;
+
+  flash = gdata_picasaweb_file_get_flash (photo);
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nmm:flash", flash ? flash_on : flash_off);
+
+  if (*error != NULL)
+    goto out;
+
+  make = gdata_picasaweb_file_get_make (photo);
+  model = gdata_picasaweb_file_get_model (photo);
+
+  if (make != NULL || model != NULL)
+    {
+      equipment_resource = gom_tracker_sparql_connection_ensure_resource
+        (job->connection,
+         job->cancellable, error,
+         &resource_exists,
+         job->datasource_urn, resource,
+         "nfo:Equipment", NULL);
+
+      if (*error != NULL)
+        goto out;
+
+      gom_tracker_sparql_connection_insert_or_replace_triple
+        (job->connection,
+         job->cancellable, error,
+         job->datasource_urn, equipment_resource,
+         "nfo:manufacturer", make);
+
+      if (*error != NULL)
+        goto out;
+
+      gom_tracker_sparql_connection_insert_or_replace_triple
+        (job->connection,
+         job->cancellable, error,
+         job->datasource_urn, equipment_resource,
+         "nfo:model", model);
+
+      if (*error != NULL)
+        goto out;
+
+      gom_tracker_sparql_connection_insert_or_replace_triple
+        (job->connection,
+         job->cancellable, error,
+         job->datasource_urn, resource,
+         "nfo:equipment", equipment_resource);
+
+      if (*error != NULL)
+        goto out;
+    }
+
+  width = g_strdup_printf ("%u", gdata_picasaweb_file_get_width (photo));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nfo:width", width);
+  g_free (width);
+
+  if (*error != NULL)
+    goto out;
+
+  height = g_strdup_printf ("%u", gdata_picasaweb_file_get_height (photo));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nfo:height", height);
+  g_free (height);
+
+  if (*error != NULL)
+    goto out;
+
+  timestamp = gdata_picasaweb_file_get_timestamp (photo);
+  date = gom_iso8601_from_timestamp (timestamp / 1000);
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:contentCreated", date);
+  g_free (date);
+
+  if (*error != NULL)
+    goto out;
+
+ out:
+  g_free (resource);
+  g_free (identifier);
+  g_free (equipment_resource);
+
+  if (*error != NULL)
+    return FALSE;
+
+  return TRUE;
+}
+
+static gboolean
+account_miner_job_process_album (GomAccountMinerJob *job,
+                                 GDataPicasaWebService *service,
+                                 GDataPicasaWebAlbum *album,
+                                 GError **error)
+{
+  GDataFeed *feed = NULL;
+  GDataPicasaWebQuery *query;
+  gchar *resource = NULL;
+  gchar *date, *identifier;
+  gboolean resource_exists, mtime_changed;
+  gint64 new_mtime;
+  gint64 timestamp;
+
+  const gchar *album_id;
+  const gchar *title;
+  const gchar *summary;
+
+  GList *l, *authors, *photos = NULL;
+
+  GDataLink *alternate;
+  const gchar *alternate_uri;
+
+  album_id = gdata_entry_get_id (GDATA_ENTRY (album));
+  identifier = g_strdup_printf ("photos:collection:google:picasaweb:%s", album_id);
+
+  /* remove from the list of the previous resources */
+  g_hash_table_remove (job->previous_resources, identifier);
+
+  resource = gom_tracker_sparql_connection_ensure_resource
+    (job->connection,
+     job->cancellable, error,
+     &resource_exists,
+     job->datasource_urn, identifier,
+     "nfo:RemoteDataObject", "nfo:DataContainer",
+     NULL);
+
+  if (*error != NULL)
+    goto out;
+
+  gom_tracker_update_datasource
+    (job->connection, job->datasource_urn,
+     resource_exists, identifier, resource,
+     job->cancellable, error);
+
+  if (*error != NULL)
+    goto out;
+
+  /* Check updated time to avoid updating the DB if it has not
+   * been modified since our last run
+   */
+  new_mtime = gdata_entry_get_updated (GDATA_ENTRY (album));
+  mtime_changed = gom_tracker_update_mtime (job->connection, new_mtime,
+                                            resource_exists, identifier, resource,
+                                            job->cancellable, error);
+
+  if (*error != NULL)
+    goto out;
+
+  /* avoid updating the DB if the resource already exists and has not
+   * been modified since our last run.
+   */
+  if (!mtime_changed)
+    goto album_photos;
+
+  /* the resource changed - just set all the properties again */
+  alternate = gdata_entry_look_up_link (GDATA_ENTRY (album), GDATA_LINK_ALTERNATE);
+  alternate_uri = gdata_link_get_uri (alternate);
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:url", alternate_uri);
+
+  if (*error != NULL)
+    goto out;
+
+  summary = gdata_entry_get_summary ((GDATA_ENTRY (album)));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:description", summary);
+
+  if (*error != NULL)
+    goto out;
+
+  title = gdata_entry_get_title ((GDATA_ENTRY (album)));
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:title", title);
+
+  if (*error != NULL)
+    goto out;
+
+  authors = gdata_entry_get_authors (GDATA_ENTRY (album));
+  for (l = authors; l != NULL; l = l->next)
+    {
+      GDataAuthor *author = GDATA_AUTHOR (l->data);
+      gchar *contact_resource;
+
+      contact_resource = gom_tracker_utils_ensure_contact_resource (job->connection,
+                                                                    job->cancellable, error,
+                                                                    gdata_author_get_email_address (author),
+                                                                    gdata_author_get_name (author));
+
+      if (*error != NULL)
+        goto out;
+
+      gom_tracker_sparql_connection_insert_or_replace_triple
+        (job->connection,
+         job->cancellable, error,
+         job->datasource_urn, resource,
+         "nco:creator", contact_resource);
+
+      if (*error != NULL)
+        goto out;
+
+      g_free (contact_resource);
+    }
+
+  timestamp = gdata_picasaweb_album_get_timestamp (album);
+  date = gom_iso8601_from_timestamp (timestamp / 1000);
+  gom_tracker_sparql_connection_insert_or_replace_triple
+    (job->connection,
+     job->cancellable, error,
+     job->datasource_urn, resource,
+     "nie:contentCreated", date);
+  g_free (date);
+
+  if (*error != NULL)
+    goto out;
+
+ album_photos:
+  query = gdata_picasaweb_query_new (NULL);
+  gdata_picasaweb_query_set_image_size (query, "d");
+  feed = gdata_picasaweb_service_query_files (service, album, GDATA_QUERY (query),
+                                              job->cancellable, NULL, NULL, error);
+
+  g_object_unref (query);
+
+  if (feed == NULL)
+    goto out;
+
+  photos = gdata_feed_get_entries (feed);
+  for (l = photos; l != NULL; l = l->next)
+    {
+      GDataPicasaWebFile *file = GDATA_PICASAWEB_FILE (l->data);
+
+      account_miner_job_process_photo (job, file, resource, error);
+
+      if (*error != NULL)
+        {
+          const gchar *photo_id;
+
+          photo_id = gdata_picasaweb_file_get_id (file);
+          g_warning ("Unable to process photo %s: %s", photo_id, (*error)->message);
+          g_clear_error (error);
+        }
+    }
+
+ out:
+  g_clear_object (&feed);
+  g_free (resource);
+  g_free (identifier);
+
+  if (*error != NULL)
+    return FALSE;
+
+  return TRUE;
+}
+
 static void
-query_gdata (GomAccountMinerJob *job,
-             GError **error)
+query_gdata_documents (GomAccountMinerJob *job,
+                       GDataDocumentsService *service,
+                       GError **error)
 {
   GDataDocumentsQuery *query;
   GDataDocumentsFeed *feed;
   GList *entries, *l;
-  GDataDocumentsService *service;
-
-  service = GDATA_DOCUMENTS_SERVICE (g_hash_table_lookup (job->services, "documents"));
-  if (service == NULL)
-    {
-      /* FIXME: use proper #defines and enumerated types */
-      g_set_error (error,
-                   g_quark_from_static_string ("gom-error"),
-                   0,
-                   "Can not query without a service");
-      return;
-    }
 
   query = gdata_documents_query_new (NULL);
   gdata_documents_query_set_show_folders (query, TRUE);
@@ -341,7 +790,7 @@ query_gdata (GomAccountMinerJob *job,
   entries = gdata_feed_get_entries (GDATA_FEED (feed));
   for (l = entries; l != NULL; l = l->next)
     {
-      account_miner_job_process_entry (job, l->data, error);
+      account_miner_job_process_entry (job, service, l->data, error);
 
       if (*error != NULL)
         {
@@ -353,12 +802,59 @@ query_gdata (GomAccountMinerJob *job,
   g_object_unref (feed);
 }
 
+static void
+query_gdata_photos (GomAccountMinerJob *job,
+                    GDataPicasaWebService *service,
+                    GError **error)
+{
+  GDataFeed *feed;
+  GList *albums, *l;
+
+  feed = gdata_picasaweb_service_query_all_albums (service, NULL, NULL, job->cancellable, NULL, NULL, error);
+
+  if (feed == NULL)
+    return;
+
+  albums = gdata_feed_get_entries (feed);
+  for (l = albums; l != NULL; l = l->next)
+    {
+      GDataPicasaWebAlbum *album = GDATA_PICASAWEB_ALBUM (l->data);
+
+      account_miner_job_process_album (job, service, album, error);
+
+      if (*error != NULL)
+        {
+          const gchar *album_id;
+
+          album_id = gdata_picasaweb_album_get_id (album);
+          g_warning ("Unable to process album %s: %s", album_id, (*error)->message);
+          g_clear_error (error);
+        }
+    }
+
+  g_object_unref (feed);
+}
+
+static void
+query_gdata (GomAccountMinerJob *job,
+             GError **error)
+{
+  gpointer service;
+
+  service = g_hash_table_lookup (job->services, "documents");
+  if (service != NULL)
+    query_gdata_documents (job, GDATA_DOCUMENTS_SERVICE (service), error);
+
+  service = g_hash_table_lookup (job->services, "photos");
+  if (service != NULL)
+    query_gdata_photos (job, GDATA_PICASAWEB_SERVICE (service), error);
+}
+
 static GHashTable *
 create_services (GomMiner *self,
                  GoaObject *object)
 {
   GDataGoaAuthorizer *authorizer;
-  GDataDocumentsService *service;
   GHashTable *services;
 
   services = g_hash_table_new_full (g_str_hash, g_str_equal,
@@ -368,8 +864,18 @@ create_services (GomMiner *self,
 
   if (gom_miner_supports_type (self, "documents") && goa_object_peek_documents (object) != NULL)
     {
+      GDataDocumentsService *service;
+
       service = gdata_documents_service_new (GDATA_AUTHORIZER (authorizer));
       g_hash_table_insert (services, "documents", service);
+    }
+
+  if (gom_miner_supports_type (self, "photos") && goa_object_peek_photos (object) != NULL)
+    {
+      GDataPicasaWebService *service;
+
+      service = gdata_picasaweb_service_new (GDATA_AUTHORIZER (authorizer));
+      g_hash_table_insert (services, "photos", service);
     }
 
   /* the service takes ownership of the authorizer */
